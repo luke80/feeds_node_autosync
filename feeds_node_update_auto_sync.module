@@ -46,9 +46,27 @@ function feeds_node_update_auto_sync_node_update( $node ) {
  * Implements hook_form_alter().
  */
 function feeds_node_update_auto_sync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
-	dpm("Form ID is : " . $form_id);
-	if($form_id == 'node_type_form') {
-		drupal_set_message("Modify this form!");
+	$content_module_type = $form['#node_type']->module;
+	if($content_module_type == "node") {
+		//	The importer needs to be configured for the node type loaded...
+		$content_node_type = $form['#node_type']->type;
+		
+		$query = "SELECT id, config FROM feeds_importer WHERE config REGEXP '\"bundle\"......?.?.?.?\"".$content_node_type."\"'";
+		dpm($query);
+		$result = db_query($query);
+		/*
+		// Create an object of type SelectQuery
+		$query = db_select('feeds_importer', 'fi');
+		// Add extra detail to this query object: a condition, fields and a range
+		$query->condition('fi.config', '"bundle"%"'.$content_node_type.'"', 'like');
+		$query->fields('fi', array('id', 'config'));
+		
+		$result = $query->execute();
+		*/
+		foreach ($result as $record) {
+			// Do something with each $record
+			dpm($record);
+		}
 		
 		$form['feeds_auto_sync'] = array(
 		 '#type' => 'fieldset',
@@ -72,5 +90,7 @@ function feeds_node_update_auto_sync_form_node_type_form_alter( &$form, &$form_s
 		);
 		*/
 		dpm($form);
+	} else {
+		drupal_set_message("Sorry, the type needs to be 'node', not ".$content_module_type);
 	}
 }
