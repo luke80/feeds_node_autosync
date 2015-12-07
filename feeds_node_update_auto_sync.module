@@ -1,0 +1,76 @@
+<?php
+
+/**
+ * Implements hook_help().
+ *
+ * Displays help and module information.
+ *
+ * @param path
+ *   Which path of the site we're using to display help
+ * @param arg
+ *   Array that holds the current path as returned from arg() function
+ */
+function feeds_node_update_auto_sync_help($path, $arg) {
+	switch ($path) {
+		case "admin/help#feeds_node_update_auto_sync":
+			return '<p>' . t("Connect nodes to their defined feed URL for automatic updates!") . '</p>';
+			break;
+	}
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function feeds_node_update_auto_sync_node_update( $node ) {
+	
+	$result = db_select('feeds_item', 'n')
+		->fields('n', array('id', 'url', 'entity_id', 'imported'))
+		->condition('entity_id', $node->nid) //Published.
+		->condition('entity_type', 'node')
+		->execute();
+	
+	$row = $result->fetchAssoc();
+	
+	if( $row['imported'] < (REQUEST_TIME - 30) ) {
+		$feed_source = feeds_source($row['id']);
+	
+		$feed_config = $feed_source->getConfigFor($feed_source->importer->fetcher);
+		$feed_config['source'] = $row['url'];
+		
+		$feed_source->setConfigFor($feed_source->importer->fetcher, $feed_config);
+		$feed_source->startImport();
+	}
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function feeds_node_update_auto_sync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
+	dpm("Form ID is : " . $form_id);
+	if($form_id == 'node_type_form') {
+		drupal_set_message("Modify this form!");
+		
+		$form['feeds_auto_sync'] = array(
+		 '#type' => 'fieldset',
+		 '#title' => t('Feeds Auto-Sync'),
+		 '#collapsible' => TRUE,
+		 '#collapsed' => TRUE,
+		 '#group' => 'additional_settings',
+		);
+		$form['feeds_auto_sync']['help']  = array(
+		'#type' => 'textarea',
+		'#title' => t('Things...'),
+		'#default_value' => '',
+		'#description' => t('Description...'),
+		);
+		/*
+		$form['description2'] = array(
+			'#title' => t('Description2'),
+			'#type' => 'textarea',
+			'#default_value' => $type->description,
+			'#description' => t('2! Describe this content type. The text will be displayed on the <em>Add new content</em> page.'),
+		);
+		*/
+		dpm($form);
+	}
+}

@@ -85,3 +85,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Eclipse development files
+.buildpath
+.settings/*
+.project
