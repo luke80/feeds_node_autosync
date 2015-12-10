@@ -1,0 +1,34 @@
+<?php
+/**
+ * Implements hook_install().
+ */
+function feeds_node_update_auto_sync_install() {
+	if(db_field_exists('node_type','auto_sync_toggle') == "") {
+		$toggle_field = array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'default' => 0,
+			'description' => 'Toggle setting for auto-sync (feeds) module.',
+		);
+		db_add_field('node_type', 'auto_sync_toggle', $toggle_field);
+	}
+	
+	if(db_field_exists('node_type','auto_sync_config') == "") {
+		$config_field = array(
+			'type' => 'blob',
+			'size' => 'big',
+			'not null' => FALSE,
+			'serialize' => TRUE,
+			'description' => 'Configuration for auto-sync (feeds) module.',
+		);
+		db_add_field('node_type', 'auto_sync_config', $config_field);
+	}
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function feeds_node_update_auto_sync_uninstall() {
+	db_drop_field('node_type', 'auto_sync_toggle');
+	db_drop_field('node_type', 'auto_sync_config');
+}
