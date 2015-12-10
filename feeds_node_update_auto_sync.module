@@ -19,6 +19,32 @@ function feeds_node_update_auto_sync_help($path, $arg) {
 }
 
 /**
+ * Implements hook_schema_alter().
+ */
+function feeds_node_update_auto_sync_schema_alter(&$schema) {
+	$schema['node_type']['fields']['auto_sync_toggle'] = array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'default' => 0,
+			'description' => 'Toggle setting for auto-sync (feeds) module.',
+	);
+	$schema['node_type']['fields']['auto_sync_config'] = array(
+		'type' => 'blob',
+		'size' => 'big',
+		'not null' => FALSE,
+		'serialize' => TRUE,
+		'description' => 'Configuration for auto-sync (feeds) module.',
+	);
+}
+
+/**
+ * Implements hook_enable().
+ */
+function feeds_node_update_auto_sync_enable() {
+	feeds_node_update_auto_sync_install();
+}
+
+/**
  * Implements hook_node_update().
  */
 function feeds_node_update_auto_sync_node_update( $node ) {
@@ -47,12 +73,84 @@ function feeds_node_update_auto_sync_node_update( $node ) {
  * Implements hook_form_alter().
  */
 function feeds_node_update_auto_sync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
-	$content_module_type = $form['#node_type']->module;
-	$config_problems = array();
-	$form_importers = array();
-	if($content_module_type != "node") {
-		$config_problems[] = t("Sorry, the type needs to be 'node', not ".$content_module_type);
+	dpm('form id:'.$form_id);
+	$form_datas = array(
+			'content_module_type'	=> $form['#node_type']->module,
+			'config_problems'			=> array(),
+			'all_form_importers'			=> array(),
+			'form_importers'			=> array(),
+	);
+	if($form_datas['content_module_type'] != "node") {
+		$form_datas['config_problems'][] = "Sorry, the type needs to be 'node', not ".$content_module_type;
+	} else {
+		//	The importer needs to be configured for the node type loaded...
+		$form_datas['content_node_type'] = $form['#node_type']->type;
+		$form_datas['importer_mapped_fields'] = array();
+		foreach (feeds_importer_load_all() as $importer) {
+			$importer_config = $importer->getConfig();
+			//	Check and enforce that the node type (bundle) matches the current, and that the feed is set to 'update existing nodes'
+			$form_datas['all_form_importers'][$importer_config['name']] = array();
+			$form_datas['all_form_importers'][$importer_config['name']]['feeds_source_mapped'] = false;
+			$form_datas['all_form_importers'][$importer_config['name']]['config'] = $importer_config['processor']['config'];
+			if($importer_config['processor']['config']['bundle'] == $form_datas['content_node_type'] && $importer_config['processor']['config']['update_existing']."" == "2") {
+				foreach($importer_config['processor']['config']['mappings'] as $map) {
+					$field = field_info_instance('node',$map['target'],$form['#node_type']->type);
+					if($field) {
+						$form_datas['importer_mapped_fields']['noedit_'.$field['field_name']] = $field['label']; //	t($map['source'])." -> ".t($map['target']);
+					}
+					if($map['target'] == "feeds_source") {
+						$form_datas['all_form_importers'][$importer_config['name']]['feeds_source_mapped'] = true;
+					}
+					unset($field);
+				}
+				if($form_datas['all_form_importers'][$importer_config['name']]['feeds_source_mapped']) {
+					$form_datas['form_importers'][$importer_config['name']] = t($importer_config['description']);
+				}
+			}
+			unset($importer_config);
+		}
+		if(count($form_datas['all_form_importers']) == 0) {
+			$form_datas['config_problems'][] =	'You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type (\''.$form_datas['content_node_type'].'\') first.';
+		}
 	}
+	if(count($form_datas['all_form_importers']) !== 0 && count($form_datas['config_problems']) == 0) {
+		if(count($form_datas['form_importers']) == 0)
+			$form_datas['config_problems'][] =	'Your configured feed needs to have a \'feed_source\' set. You do this by setting one of the import fields mapped to \'feed_source\'. It also helps to make the data provided function as a sync source for the specific node it creates/updates.';
+		else
+			$form_datas['config_problems'][] =	'It appears that your importers are either missing or are not set up to be compatible with an auto-update. You must map a feed_source to the feed source (called a \'feed_source\' in the mappings), which should be a unique feed_source to update only that node.';
+	}
+	//	Verify successful import of nodes
+	$missing_nodes_error = 'Before setting auto-update on a content type, you need to successfully sync your nodes manually at least once. (No \'feed_source\' data found.)';
+	foreach($form_datas['form_importers'] as $importer_name=>$importer) {
+		$missing_nodes_error .= '<br/><a href="/import/'.$importer_name.'">Click here to go import page for "'.$importer.'"</a>';
+	}
+	$form_datas['nids'] = db_select('node', 'n')
+		->fields('n', array('nid'))
+		->fields('n', array('type'))
+		->condition('n.type', $form_datas['content_node_type'])
+		->execute()
+		->fetchCol(); // returns an indexed array
+	if(count($form_datas['nids']) > 0 && count($form_datas['config_problems']) == 0) {
+		$result = db_select('feeds_source', 'fs')
+			->fields('fs', array('id'))
+			->fields('fs',array('source'))
+			->condition('fs.feed_nid', $form_datas['nids'])
+			->condition('fs.source', '', $operator = '<>')
+			->execute();
+		if($result->rowCount() == 0) {
+			$form_datas['config_problems'][] =	$missing_nodes_error;
+		}
+	} else if(count($form_datas['config_problems']) == 0) {
+		$form_datas['config_problems'][] =	$missing_nodes_error;
+	}
+	unset($missing_nodes_error);
+	unset($result);
+	
+	//dpm($form_datas);
+	
+	//
+	//	Section for modifications to the form
+	//
 	$form['feeds_auto_sync'] = array(
 	 '#type' => 'fieldset',
 	 '#title' => t('Feeds Auto-Sync'),
@@ -60,85 +158,117 @@ function feeds_node_update_auto_sync_form_node_type_form_alter( &$form, &$form_s
 	 '#collapsed' => TRUE,
 	 '#group' => 'additional_settings',
 	);
-	//	The importer needs to be configured for the node type loaded...
-	$content_node_type = $form['#node_type']->type;
-	$available_importers = array();
-	foreach (feeds_importer_load_all() as $importer) {
-		//	Skip importers that are defined in code and are provided by the current
-		//	module. This ensures that modules that define both an importer and a
-		//	plugin can still be disabled.
-		if ($importer->export_type == EXPORT_IN_CODE) {
-			$configs = ctools_export_load_object('feeds_importer', 'names', array($importer->id));
-			if (isset($configs[$importer->id]) && $configs[$importer->id]->export_module === $file->name) {
-				continue;
-			}
-		}
-		$importer_config = $importer->getConfig();
-		//	Check and enforce that the node type (bundle) matches the current, and that the feed is set to 'update existing nodes'
-		if($importer_config['content_type'] == $content_node_type && $importer_config['processor']['config']['update_existing'] == 2) {
-			$available_importers[$importer_config['description']] = array("importer"=>$importer, "config"=>$importer_config);
-		}
+	if(count($form_datas['config_problems']) != 0) {
+		$form['feeds_auto_sync']['errors']  = array(
+				'#markup' => t(implode("<br/>",$form_datas['config_problems'])),
+		);
 	}
-	if(count($available_importers) == 0) {
-		$config_problems[] =	t('You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type (\''.$content_node_type.'\') first.');
-	}
-	foreach($available_importers as $available_importer) {
-			$feeds_source_mapped = false;
-			foreach($available_importer['config']['processor']['config']['mappings'] as $map) {
-				if($map['target'] == "feeds_source") {
-					$feeds_source_mapped = true;
-					break 1;
-				}
-			}
-			$available_importer['feeds_source_mapped'] = $feeds_source_mapped;
-			if($feeds_source_mapped) {
-				$form_importers[t($available_importer['config']['name'])] = t($available_importer['config']['description']);
-			}
-	}
-	if(count($form_importers) == 0) {
-		if(count($available_importers) !== 0)
-			$config_problems[] =	t('Your configured feed needs to have a \'feed_source\' set. You do this by setting one of the import fields mapped to \'feed_source\'. It also helps to make the data provided function as a sync source for the specific node it creates/updates.');
-		else
-			$config_problems[] =	t('It appears that your importers are either missing or are not set up to be compatible with an auto-update. You must map a feed_source to the feed source (called a \'feed_source\' in the mappings), which should be a unique feed_source to update only that node.');
-	}
-
-	//	Verify successful import of nodes
-	$nids = db_select('node', 'n')
-		->fields('n', array('nid'))
-		->fields('n', array('type'))
-		->condition('n.type', $content_node_type)
-		->execute()
-		->fetchCol(); // returns an indexed array
-	$result = db_select('feeds_source', 'fs')
-		->fields('fs', array('id'))
-		->fields('fs',array('source'))
-		->condition('fs.feed_nid', $nids)
-		->condition('fs.source', "", $operator = '<>')
-		->execute();
-	if($result->rowCount() == 0) {
-		$config_problems[] =	t('Before setting auto-update on a content type, you need to successfully sync your nodes manually at least once. (No \'feed_source\' data found.)<br/><a href="/import/'.array_keys($form_importers)[0].'"></a>'); 
-	}
-	//
-	//	Section for modifications to the form
-	//
-	if(count($config_problems) == 0) {
-		//	$form['feeds_auto_sync']['#title'] = t('Auto-sync ready!');
-		$form['feeds_auto_sync']['importer']  = array(
+	$form['feeds_auto_sync']['active']  = array(
+		'#type' => 'checkbox',
+		'#title' => t('Auto-sync this content type?'),
+		'#description' => t('With this checked, when items of this type are modified they will trigger a re-import from the configured source.'),
+	);
+	//$form['feeds_auto_sync']['#description'] = t('Auto-sync ready!');
+	$form['feeds_auto_sync']['importer']  = array(
 		'#type' => 'select',
-		'#options' => drupal_map_assoc($form_importers),
+		'#options' => $form_datas['form_importers'],
 		'#title' => t('Which importer do you want the auto-sync to use?'),
 		'#description' => t('Overridden settings include; deactivate missing items...'),
-		);
+	);
+	$form['feeds_auto_sync']['cooldown']  = array(
+		'#type' => 'select',
+		'#options' => drupal_map_assoc(array(5,10,15,20,25,30,45,60)),
+		'#title' => t('Cooldown delay on re-importing nodes.'),
+		'#description' => t('This setting has two purposes, first to defeat recursion (which is triggered when an auto-update modifys a node, causing it to re-update), second to make the sync resistant to causing an importer lock if two users edit the same node at the same (ish) time.'),
+		'#default_value' => 30,
+	);
+		//$form_array_1 = array(
+				//	working
+		//		"noedit_field_orion_product_id" => "Orion Product Id",
+		//		"noedit_field_course_title" => "Course Title",
+				//"noedit_field_sort_title" => "Sort Title",
+				//"noedit_field_course_code" => "Course Code",
+				//"noedit_body" => "Description",
+				//"noedit_field_remaining_spaces" => "Remaining Spaces",
+				//	test
+				//"noedit_field_delivery_type" => "Delivery Type",
+				//"noedit_field_academic_department" => "Academic Department",
+				//"noedit_field_academic_catalog" => "Academic Catalog",
+				//"noedit_field_academic_section" => "Academic Section",
+				//"noedit_field_load_balance_group" => "Load Balance Group",
+				//"noedit_field_tags" => "Tags",
+		//);
+		
+		//dpm($importer_mapped_fields);
 	/*
-	 * Todo:
-	 * specify "deactivation" of node edit form elements
-	 * connect these settings to sync code
-	 * create importer overrides and complete the description on the previous (line 120)
-	 * 
-	 */
-	} else {
-		$form['feeds_auto_sync']['importer']  = array(
-				'#markup' => t(implode("<br/>",$config_problems)),
+	$form['feeds_auto_sync_blocked'] = array(
+		 '#type' => 'fieldset',
+		 '#title' => t('Feeds Auto-Sync Blocked Edits'),
+		 '#collapsible' => TRUE,
+		 '#collapsed' => TRUE,
+		 '#group' => 'additional_settings',
+	);
+		//	This would have made more sense, but I couldn't get it to work with more than 6 members!?
+	$form['feeds_auto_sync_blocked']['node_fields_block_edits']  = array(
+		'#type' => 'checkboxes',
+		'#options' => array('key1'=>t('Value 1'),'key2'=>t('Value 2')),	//$importer_mapped_fields,	//	$form_array_1
+		'#title' => t('Block edits on these fields'),
+		'#description' => t('Check the node members you wish to make un-editable with the node form.'),
+	);
+	*/
+		/*
+		$form['feeds_auto_sync']['block_edits'] = array(
+			'#type'					=>	'fieldset',
+			'#title'				=>	t('Block edits on these fields:'),
+			'#collapsible'	=>	FALSE,
+			//	'#collapsed'		=>	FALSE,
+			'#description'	=>	t('Check the node members you wish to make un-editable with the node form.'),
 		);
+		*/
+		//dpm($form_array_1);
+		/*foreach($form_array_1 as $checkbox_name=>$checkbox_label) {
+			$form['feeds_auto_sync']['block_edits']['block_edits_'.$checkbox_name]  = array(
+					'#type' => 'checkbox',
+					'#title' => t($checkbox_label),
+			);
+		}*/
+	/*
+		* Todo:
+		* connect these settings to sync code
+		* create importer overrides and complete the description on the previous (line 120)
+	*/
+	
+	//$form['#submit'][] = 	'feeds_node_update_auto_sync_save_node_type_form_data';
+	/*$form['actions']['save'] = array(
+			'#type' =>	$form['actions']['submit']['#type'],
+			'#value' =>	$form['actions']['submit']['#value'],
+			'#weight' =>	$form['actions']['submit']['#weight'],
+			'#submit' => array_merge($form['#submit'], array('feeds_node_update_auto_sync_nodetypeform_data')),
+	);*/
+	//unset($form['actions']['submit']);
+	array_push($form['#submit'], 	'feeds_node_update_auto_sync_nodetypeform_data');
+	//array_push($form['#validate'], 	'feeds_node_update_auto_sync_save_node_type_form_validate');
+	//$form['#validate'] =	'feeds_node_update_auto_sync_save_node_type_form_validate';
+	dpm($form);
+	drupal_set_message('node type form');
+	return $form;
+}
+
+function feeds_node_update_auto_sync_form_node_type_form_submit($form, &$form_state) {
+	drupal_set_message('built-in submit handler');
+	dpm('data function 2');
+	dpm($form_state);
 	}
+function feeds_node_update_auto_sync_nodetypeform_data ( $form, &$form_state ) {
+	drupal_set_message('data on submit handler');
+	dpm('data function');
+	dpm($form_state);
+	return array($form, $form_state);
+}
+
+function feeds_node_update_auto_sync_save_node_type_form_validate ( $form, &$form_state ) {
+	drupal_set_message('data validate submit handler');
+	dpm('validator');
+	dpm($form_state);
+	return TRUE;
 }
