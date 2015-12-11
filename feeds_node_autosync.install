@@ -2,7 +2,8 @@
 /**
  * Implements hook_install().
  */
-function feeds_node_update_auto_sync_install() {
+function feeds_node_autosync_install() {
+	dpm("install fna");
 	if(db_field_exists('node_type','auto_sync_toggle') == "") {
 		$toggle_field = array(
 			'type' => 'int',
@@ -28,7 +29,7 @@ function feeds_node_update_auto_sync_install() {
 /**
  * Implements hook_uninstall().
  */
-function feeds_node_update_auto_sync_uninstall() {
+function feeds_node_autosync_uninstall() {
 	db_drop_field('node_type', 'auto_sync_toggle');
 	db_drop_field('node_type', 'auto_sync_config');
 }
