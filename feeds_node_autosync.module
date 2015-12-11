@@ -160,30 +160,36 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 	 '#group' => 'additional_settings',
 	);
 	if(count($form_datas['config_problems']) != 0) {
-		$form['feeds_auto_sync']['errors']  = array(
+		$form['feeds_auto_sync']['fna_errors']  = array(
 				'#markup' => t(implode("<br/>",$form_datas['config_problems'])),
 		);
 	}
-	$form['feeds_auto_sync']['active']  = array(
+	$form['feeds_auto_sync']['fna_active']  = array(
 		'#type' => 'checkbox',
 		'#title' => t('Auto-sync this content type?'),
 		'#description' => t('With this checked, when items of this type are modified they will trigger a re-import from the configured source.'),
 	);
 	//$form['feeds_auto_sync']['#description'] = t('Auto-sync ready!');
-	$form['feeds_auto_sync']['importer']  = array(
+	$form['feeds_auto_sync']['fna_importer']  = array(
 		'#type' => 'select',
 		'#options' => $form_datas['form_importers'],
 		'#title' => t('Which importer do you want the auto-sync to use?'),
 		'#description' => t('Overridden settings include; deactivate missing items...'),
 	);
-	$form['feeds_auto_sync']['cooldown']  = array(
+	$form['feeds_auto_sync']['fna_cooldown']  = array(
 		'#type' => 'select',
 		'#options' => drupal_map_assoc(array(5,10,15,20,25,30,45,60)),
 		'#title' => t('Cooldown delay on re-importing nodes.'),
 		'#description' => t('This setting has two purposes, first to defeat recursion (which is triggered when an auto-update modifys a node, causing it to re-update), second to make the sync resistant to causing an importer lock if two users edit the same node at the same (ish) time.'),
 		'#default_value' => 30,
 	);
-		//$form_array_1 = array(
+	$form['feeds_auto_sync']['fna_block_field_edits']  = array(
+		'#type' => 'checkboxes',
+		'#options' => drupal_map_assoc(array(t('Value 1'),t('Value 2'))),	//$importer_mapped_fields,	//	$form_array_1
+		'#title' => t('Block edits on these fields'),
+		'#description' => t('Check the node members you wish to make un-editable with the node form.'),
+	);
+	//$form_array_1 = array(
 				//	working
 		//		"noedit_field_orion_product_id" => "Orion Product Id",
 		//		"noedit_field_course_title" => "Course Title",
@@ -202,7 +208,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		
 		//dpm($importer_mapped_fields);
 	
-	$form['feeds_auto_sync_blocked'] = array(
+	/*$form['feeds_auto_sync_blocked'] = array(
 		 '#type' => 'fieldset',
 		 '#title' => t('Feeds Auto-Sync Blocked Edits'),
 		 '#collapsible' => TRUE,
@@ -210,12 +216,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		 '#group' => 'additional_settings',
 	);
 		//	This would have made more sense, but I couldn't get it to work with more than 6 members!?
-	$form['feeds_auto_sync_blocked']['node_fields_block_edits']  = array(
-		'#type' => 'checkboxes',
-		'#options' => array('key1'=>t('Value 1'),'key2'=>t('Value 2')),	//$importer_mapped_fields,	//	$form_array_1
-		'#title' => t('Block edits on these fields'),
-		'#description' => t('Check the node members you wish to make un-editable with the node form.'),
-	);
+	*/
 	
 		/*
 		$form['feeds_auto_sync']['block_edits'] = array(
@@ -264,6 +265,9 @@ function feeds_node_autosync_nodetypeform_data ( $form, &$form_state ) {
 	drupal_set_message('data on submit handler');
 	dpm('data function');
 	dpm($form_state);
+	dd('data on submit handler');
+	dd('data function');
+	dd($form_state);
 	return array($form, $form_state);
 }
 
