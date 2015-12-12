@@ -328,7 +328,7 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 }
 
 /**
- * Implemented by functions that need to read or write the configuration objects stored in the config column of the database.
+ * Implemented by functions that need to read the configuration objects stored in the config column of the database.
  *
  * This function takes a variable name loads it from ctools
  *
@@ -336,6 +336,22 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
  *   The string content_type which stores the ctools variable
  */
 function feeds_node_autosync_conf($content_type) {
+	ctools_include('export');
+	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
+	if (isset($result[$content_type])) {
+		return $result[$content_type];
+	}
+}
+
+/**
+ * Implemented by functions that need to write the configuration objects stored in the config column of the database.
+ *
+ * This function takes a variable name loads it from ctools
+ *
+ * @param content_type
+ *   The string content_type which stores the ctools variable
+ */
+function feeds_node_autosync_conf_save($content_type) {
 	ctools_include('export');
 	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
 	if (isset($result[$content_type])) {
