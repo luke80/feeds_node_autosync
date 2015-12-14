@@ -358,3 +358,22 @@ function feeds_node_autosync_conf_save($content_type) {
 		return $result[$content_type];
 	}
 }
+
+/**
+ * Implements 'load callback' for conf exportables.
+ */
+function feeds_node_autosync_conf_load($name) {
+	ctools_include('export');
+	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
+	if (isset($result[$name])) {
+		return $result[$name];
+	}
+}
+
+/**
+ * Save a single conf.
+ */
+function feeds_node_autosync_conf_save(&$conf) {
+	$update = (isset($conf->oid) && is_numeric($conf->oid)) ? array('oid') : array();
+	return drupal_write_record('feeds_node_autosync_conf', $conf, $update);
+}
