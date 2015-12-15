@@ -94,6 +94,12 @@ function feeds_node_autosync_node_update( $node ) {
  *   String representing the name of the form itself. This is the "FORM_ID" part of the name of the function.
 */
 function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
+	module_load_include('inc', 'feeds_node_autosync', 'feeds_node_autosync.ctools');
+	//$conf = feeds_node_autosync_conf($form['#node_type']->type);
+	ctools_include('export');
+	$conf = ctools_export_load_object('feeds_node_autosync_config', 'content_types', $form['#node_type']->type);
+	dpm($conf);
+	
 	//	Initialize the $form_datas to contain all the requisite data places
 	$form_datas = array(
 			'config_problems'		=> array(),		//	This array is populated with helpful text to assist the user to configure the feed to work with this module.
@@ -325,68 +331,4 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 	}
 	unset($importer_config);	//	Since this is no longer needed, why not delete it?
 	return $ret;
-}
-
-/**
- * Implemented by functions that need to read the configuration objects stored in the config column of the database.
- *
- * This function takes a variable name loads it from ctools
- *
- * @param content_type
- *   The string content_type which stores the ctools variable
- */
-function feeds_node_autosync_conf($content_type) {
-	ctools_include('export');
-	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
-	if (isset($result[$content_type])) {
-		return $result[$content_type];
-	}
-}
-
-/**
- * Implemented by functions that need to write the configuration objects stored in the config column of the database.
- *
- * This function takes a variable name loads it from ctools
- *
- * @param content_type
- *   The string content_type which stores the ctools variable
- */
-function feeds_node_autosync_conf_save($content_type) {
-	ctools_include('export');
-	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
-	if (isset($result[$content_type])) {
-		return $result[$content_type];
-	}
-}
-
-/**
- * Implements 'load callback' for conf exportables.
- */
-function feeds_node_autosync_conf_load($name) {
-	ctools_include('export');
-	$result = ctools_export_load_object('feeds_node_autosync_conf', 'content_types', array($content_type));
-	if (isset($result[$name])) {
-		return $result[$name];
-	}
-}
-
-/**
- * Save a single conf.
- */
-function feeds_node_autosync_conf_save(&$conf) {
-	$update = (isset($conf->oid) && is_numeric($conf->oid)) ? array('oid') : array();
-	return drupal_write_record('feeds_node_autosync_conf', $conf, $update);
-}
-
-/**
- * Implementation of hook_ctools_plugin_api().
- *
- * Tell CTools that we support the default_mymodule_presets API.
- * 
- * https://www.drupal.org/node/928026
- */
-function feeds_node_autosync_ctools_plugin_api($owner, $api) {
-	if ($owner == 'mymodule' && $api == 'default_mymodule_presets') {
-		return array('version' => 1);
-	}
 }

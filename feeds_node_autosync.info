@@ -1,9 +1,8 @@
 name = Feeds Node Auto-Sync
 description = Provide the option to automatically re-sync individual nodes with their Feed source on update.
 core = 7.x
-
 package = Feeds
 dependencies[] = feeds
 dependencies[] = feeds_ui
 dependencies[] = ctools
-
+files[] = feeds_node_autosync.ctools.inc

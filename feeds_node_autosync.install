@@ -4,6 +4,9 @@
  */
 function feeds_node_autosync_install() {
 	dpm("install fna");
+	module_load_include('inc', 'feeds_node_autosync', 'feeds_node_autosync.ctools');
+	drupal_install_schema('feeds_node_autosync_config');
+	
 	if(db_field_exists('node_type','auto_sync_toggle') == "") {
 		$toggle_field = array(
 			'type' => 'int',
