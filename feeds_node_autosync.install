@@ -39,36 +39,11 @@ function feeds_node_autosync_uninstall() {
 
 function feeds_node_autosync_schema() {
 	$schema['feeds_node_autosync_config'] = array(
-		'description' => t('Table storing autosync config definitions.'),
-		'export' => array(
-			'key' => 'node_type',
-			'key name' => 'Node Type',
-			'primary key' => 'oid',
-			'identifier' => 'autosync_config', // Exports will be as $myobj
-			'default hook' => 'default_mymodule_myobj',  // Function hook name.
-		),
-		'fields' => array(
-			'node_type' => array(
-				'type' => 'varchar',
-				'length' => '32',
-				'description' => 'Unique ID for this object. Matches the node type the settings are for.',
-			),
-			'oid' => array(
-				'type' => 'serial',
-				'unsigned' => TRUE,
-				'not null' => TRUE,
-				'description' => 'Primary ID field for the table. Not used for anything except internal lookups.',
-				'no export' => TRUE, // Do not export database-only keys.
-			),
-			'config' => array(
+		'description' => t('Structure storing autosync config definitions.'),
+		'default_config' => array(
 				'type' => 'blob',
 				'size' => 'big',
-				'description' => 'Unique ID for this object. Matches the node type the settings are for.',
-			),
-			'primary key' => array('oid'),
-			'unique keys' => array(
-				'name' => array('name'),
-			),
+				'description' => 'JSON formatted string containing configuration data for a given content-type. Default disabled.',
 		)
 	);
 	return $schema;
