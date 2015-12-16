@@ -355,8 +355,10 @@ function feeds_node_autosync_config( $node_type, $config_obj = NULL ) {
 			->condition('nt.type',$node_type)
 			->range(0,1)
 			->execute();
+		$config_db = $result->fetchAssoc();
 		
-		if($result->rowCount() == 0 || $result->fetchAssoc() == array('auto_sync_config'=>NULL)) {
+		if($result->rowCount() == 0 || $config_db == array('auto_sync_config'=>NULL) || $config_db == NULL) {
+			//dpm("reset db from default");
 			module_load_install('feeds_node_autosync');
 			$config = feeds_node_autosync_schema();
 			$config['config'] = $config['feeds_node_autosync_config']['default_config'];
@@ -373,12 +375,17 @@ function feeds_node_autosync_config( $node_type, $config_obj = NULL ) {
 				->condition('nt.type',$node_type)
 				->range(0,1)
 				->execute();
+			$config_db = $result->fetchAssoc();
 		}
+		
 		if($result->rowCount() > 0) {
-			$config_str = $result->fetchAssoc()['auto_sync_config'];
+			$config_str = $config_db['auto_sync_config'];
 			$config_obj = json_decode($config_str);
+			//dpm("graceful return");
+			$config_db = $result->fetchAssoc();
 			return $config_obj;
 		} else {
+			dpm("This shouldn't happen");
 			return FALSE;
 		}
 	}
