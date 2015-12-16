@@ -94,10 +94,7 @@ function feeds_node_autosync_node_update( $node ) {
  *   String representing the name of the form itself. This is the "FORM_ID" part of the name of the function.
 */
 function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
-	module_load_include('inc', 'feeds_node_autosync', 'feeds_node_autosync.ctools');
-	//$conf = feeds_node_autosync_conf($form['#node_type']->type);
-	ctools_include('export');
-	$conf = ctools_export_load_object('feeds_node_autosync_config', 'content_types', $form['#node_type']->type);
+	$conf = feeds_node_autosync_config($form['#node_type']->type);
 	dpm($conf);
 	
 	//	Initialize the $form_datas to contain all the requisite data places
@@ -233,7 +230,7 @@ function feeds_node_autosync_nodetypeform_data ( $form, &$form_state ) {
 	
 	$num_updated = db_update('node_type')
 		->fields(array(
-				'fna_active' => $form_state['values']['fna_active']
+				'auto_sync_toggle' => $form_state['values']['fna_active']
 		))
 		->condition('type', $form['#node_type']->type)
 		->execute();
@@ -331,4 +328,58 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 	}
 	unset($importer_config);	//	Since this is no longer needed, why not delete it?
 	return $ret;
+}
+
+function feeds_node_autosync_config( $node_type, $config_obj = NULL ) {
+	if(!is_null($config_obj)) {
+		if(is_string($config_obj)) {
+			$config_str = $config_obj;
+			$config_obj = json_decode($config_str);
+			$config_str = json_encode($config_obj);
+		} else {
+			$config_str = json_encode($config_obj);
+		}
+		$num_updated = db_update('node_type')
+			->fields(array(
+					'auto_sync_config' => $config_str
+			))
+			->condition('type', $node_type)
+			->execute();
+		if($num_updated > 0)
+			return $num_updated;
+		else
+			return FALSE;
+	} else {
+		$result = db_select('node_type', 'nt')
+			->fields('nt', array('auto_sync_config'))
+			->condition('nt.type',$node_type)
+			->range(0,1)
+			->execute();
+		
+		if($result->rowCount() == 0 || $result->fetchAssoc() == array('auto_sync_config'=>NULL)) {
+			module_load_install('feeds_node_autosync');
+			$config = feeds_node_autosync_schema();
+			$config['config'] = $config['feeds_node_autosync_config']['default_config'];
+			$config_str = json_encode($config);
+			$config_obj = json_decode($config_str);
+			$num_updated = db_update('node_type')
+				->fields(array(
+						'auto_sync_config' => $config_str
+				))
+				->condition('type', $node_type)
+				->execute();
+			$result = db_select('node_type', 'nt')
+				->fields('nt', array('auto_sync_config'))
+				->condition('nt.type',$node_type)
+				->range(0,1)
+				->execute();
+		}
+		if($result->rowCount() > 0) {
+			$config_str = $result->fetchAssoc()['auto_sync_config'];
+			$config_obj = json_decode($config_str);
+			return $config_obj;
+		} else {
+			return FALSE;
+		}
+	}
 }
