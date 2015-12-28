@@ -62,6 +62,7 @@ function feeds_node_autosync_enable() {
  *   Contains the node which was updates (the update that fired the hook)
 */
 function feeds_node_autosync_node_update( $node ) {
+	$c = feeds_node_autosync_config($node->type);
 	$feeds_items_result = db_select('feeds_item', 'n')
 		->fields('n', array('id', 'url', 'entity_id', 'imported'))
 		->condition('entity_id', $node->nid) //Published.
@@ -69,15 +70,21 @@ function feeds_node_autosync_node_update( $node ) {
 		->execute();
 	$feeds_items_row = $feeds_items_result->fetchAssoc();
 	
-	if( $feeds_items_row['imported'] < (REQUEST_TIME - 30) && 1 == 0 ) {
-		$feed_source = feeds_source($feeds_items_row['id']);
-	
-		$feed_config = $feed_source->getConfigFor($feed_source->importer->fetcher);
-		$feed_config['source'] = $feeds_items_row['url'];
-		dpm($feed_config);
+	if( $feeds_items_row['imported'] < (REQUEST_TIME - $c->config->cooldown->value) ) {
+		//$feed_source = feeds_source($feeds_items_row['id']);	//	This is the source that originally created the node. This is now overridden by the setting on the node type form.
+		$feed_source = feeds_source($c->config->importer->value);
 		
-		$feed_source->setConfigFor($feed_source->importer->fetcher, $feed_config);
+		$feed_config = $feed_source->getConfig();
+		$feed_config['FeedsHTTPFetcher']['source'] = $feeds_items_row['url'];
+		$feed_config['FeedsNodeProcessor']['update_non_existent'] = 'skip';
+		$feed_config['FeedsNodeProcessor']['skip_hash_check'] = 1;
+		
+		$feed_source->setConfig($feed_config);
+		$feed_source->save();
+		dpm($feed_config);
 		$feed_source->startImport();
+	} else {
+		dpm("Not updating due to cooldown limit. ".$feeds_items_row['imported']." < ".(REQUEST_TIME - $c->config->cooldown->value));
 	}
 }
 
@@ -94,8 +101,8 @@ function feeds_node_autosync_node_update( $node ) {
  *   String representing the name of the form itself. This is the "FORM_ID" part of the name of the function.
 */
 function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $form_id ) {
-	$conf = feeds_node_autosync_config($form['#node_type']->type);
-	dpm($conf);
+	//	Retrieve the configuration object..
+	$c = feeds_node_autosync_config($form['#node_type']->type);
 	
 	//	Initialize the $form_datas to contain all the requisite data places
 	$form_datas = array(
@@ -182,20 +189,25 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		'#title' => t('Auto-sync this content type?'),
 		'#description' => t('With this checked, when items of this type are modified they will trigger a re-import from the configured source.'),
 	);
+	if($c->config->active->value == 1) {
+		$form['feeds_auto_sync']['fna_active']['#attributes'] = array('checked'=>'checked');
+	}
 	//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
 	$form['feeds_auto_sync']['fna_importer']  = array(
 		'#type' => 'select',
 		'#options' => $form_datas['importers']['valid'],
 		'#title' => t('Which importer do you want the auto-sync to use?'),
 		'#description' => t('Overridden settings include; deactivate missing items...'),
+		'#default_value' =>	t($c->config->importer->value),
 	);
+	
 	//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
 	$form['feeds_auto_sync']['fna_cooldown']  = array(
 		'#type' => 'select',
 		'#options' => drupal_map_assoc(array(5,10,15,20,25,30,45,60)),
 		'#title' => t('Cooldown delay on re-importing nodes.'),
 		'#description' => t('This setting has two purposes, first to defeat recursion (which is triggered when an auto-update modifys a node, causing it to re-update), second to make the sync resistant to causing an importer lock if two users edit the same node at the same (ish) time.'),
-		'#default_value' => 30,
+		'#default_value' =>	$c->config->cooldown->value,
 	);
 	//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
 	$form['feeds_auto_sync']['fna_block_field_edits']  = array(
@@ -203,6 +215,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		'#options' => $form_datas['importer_mapped_fields'],
 		'#title' => t('Block edits on these fields'),
 		'#description' => t('Check the node members you wish to make un-editable with the node form.'),
+		'#default_value' => array_keys(get_object_vars($c->config->block_field_edits->value)),
 	);
 	/*
 		* Todo:
@@ -225,9 +238,6 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
  *   A keyed array containing the current state of the form.
 */
 function feeds_node_autosync_nodetypeform_data ( $form, &$form_state ) {
-	drupal_set_message('data on submit handler');
-	dpm('data function');
-	
 	$num_updated = db_update('node_type')
 		->fields(array(
 				'auto_sync_toggle' => $form_state['values']['fna_active']
@@ -235,7 +245,29 @@ function feeds_node_autosync_nodetypeform_data ( $form, &$form_state ) {
 		->condition('type', $form['#node_type']->type)
 		->execute();
 	
-	dpm($form_state);
+	$config = feeds_node_autosync_config($form['#node_type']->type);
+	foreach($form_state['values'] as $form_field=>$form_value) {
+		if(substr($form_field,0,4) == 'fna_') {
+			$field = substr($form_field,4);
+			if(!is_null($form_value)) {
+				if(is_array($form_value)) {
+					$values = array();
+					foreach($form_value as $key=>$value) {
+						if($value != "0") {
+							$values[$key] = $value;
+						} else {
+							//$values[$key] = FALSE;
+						}
+					}
+					$config->config->{$field}->value = $values;
+				} elseif(is_numeric($form_value)) {
+					$config->config->{$field}->value = intval($form_value);
+				} else
+					$config->config->{$field}->value = $form_value;
+			}
+		}
+	}
+	feeds_node_autosync_config($form['#node_type']->type, $config);
 	return array($form, $form_state);
 }
 
@@ -256,7 +288,10 @@ function feeds_node_autosync_save_node_type_form_validate ( $form, &$form_state 
 	
 	//	Validate 'fna_importer'
 	$validation_data = feeds_node_autosync_validate_importer($form_state['values']['fna_importer'], $form['#node_type']->type);
-	if(!in_array($form_state['values']['fna_importer'],$validation_data['valid'],TRUE)) {
+	if(!in_array($form_state['values']['fna_importer'],array_keys($validation_data['valid']),TRUE)) {
+		drupal_set_message('Importer failed validation.','warning',TRUE);
+		//dpm($validation_data);
+		//dpm($form_state['values']['fna_importer']);
 		$form_state['values']['fna_importer'] = null;
 	}
 	
@@ -330,13 +365,24 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 	return $ret;
 }
 
+/**
+ * Implemented whenever the configuration for a given node type needs to be accessed (recalled or stored)
+ *
+ * The first argument is always the node_type, the second is optional and will store the given data as the config.
+ *
+ * @param node_type
+ *   The string id of the node type
+ * @param config_obj
+ *   The settings to store, changes the return type to int of number of rows updated (should be 0 or 1)
+ */
 function feeds_node_autosync_config( $node_type, $config_obj = NULL ) {
+	//	This section is for storing the settings data ($config_obj provided)
 	if(!is_null($config_obj)) {
-		if(is_string($config_obj)) {
+		if(is_string($config_obj)) {	//	If it is a string, we need to get it into the correct "shape" by encoding it into an object, then turning it back into a string.
 			$config_str = $config_obj;
 			$config_obj = json_decode($config_str);
 			$config_str = json_encode($config_obj);
-		} else {
+		} else {	//	If it isn't a string, then it get simpler - simply change it into a string.
 			$config_str = json_encode($config_obj);
 		}
 		$num_updated = db_update('node_type')
@@ -349,44 +395,46 @@ function feeds_node_autosync_config( $node_type, $config_obj = NULL ) {
 			return $num_updated;
 		else
 			return FALSE;
-	} else {
+	} else {	//	The above always ends with a 'return' so this section doesn't strictly need to be in an 'else', but for legibility I've left it in one.
+		//	recall the existing settings from the database.
 		$result = db_select('node_type', 'nt')
 			->fields('nt', array('auto_sync_config'))
 			->condition('nt.type',$node_type)
 			->range(0,1)
 			->execute();
 		$config_db = $result->fetchAssoc();
-		
+		//	if there isn't one - get the default and set that, also load it into the '$result' container.
 		if($result->rowCount() == 0 || $config_db == array('auto_sync_config'=>NULL) || $config_db == NULL) {
-			//dpm("reset db from default");
-			module_load_install('feeds_node_autosync');
-			$config = feeds_node_autosync_schema();
-			$config['config'] = $config['feeds_node_autosync_config']['default_config'];
-			$config_str = json_encode($config);
-			$config_obj = json_decode($config_str);
+			module_load_install('feeds_node_autosync');		//	the install script contains the schema. First we load it.
+			$config = feeds_node_autosync_schema();		//	Then we get the default schema.
+			$config = $config['feeds_node_autosync_config'];	//	 We don't need that root element...
+			$config['config'] = $config['default_config'];	//	Then we "copy" the default into place.
+			$config_str = json_encode($config);		//	We need the string version to store in the database.
 			$num_updated = db_update('node_type')
 				->fields(array(
 						'auto_sync_config' => $config_str
 				))
 				->condition('type', $node_type)
-				->execute();
+				->execute();		//	Put it in the database!
 			$result = db_select('node_type', 'nt')
 				->fields('nt', array('auto_sync_config'))
 				->condition('nt.type',$node_type)
 				->range(0,1)
 				->execute();
-			$config_db = $result->fetchAssoc();
+			$config_db = $result->fetchAssoc();		//	Retrieve it from the database (to ensure that what the function returns is literally what the database contains).
 		}
-		
+		//	Failure checking.		
 		if($result->rowCount() > 0) {
+			//	Get the database string
 			$config_str = $config_db['auto_sync_config'];
+			//	Turn it into the object...
 			$config_obj = json_decode($config_str);
-			//dpm("graceful return");
-			$config_db = $result->fetchAssoc();
+			//	Return the result!
 			return $config_obj;
 		} else {
-			dpm("This shouldn't happen");
-			return FALSE;
+			//	In case of error, let the user know it failed.
+			drupal_set_message("Failure to store the default configuration for node type '".$node_type."' in the database. Configuration not set. Proceed with caution.", 'error', TRUE);
+			return $config;
 		}
 	}
 }

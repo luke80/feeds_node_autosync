@@ -41,10 +41,27 @@ function feeds_node_autosync_schema() {
 	$schema['feeds_node_autosync_config'] = array(
 		'description' => t('Structure storing autosync config definitions.'),
 		'default_config' => array(
-				'type' => 'blob',
-				'size' => 'big',
-				'description' => 'JSON formatted string containing configuration data for a given content-type. Default disabled.',
-		)
+				'active' => array('type' => 'boolean',
+					'label' => 'Active',
+					'value'	=> '0',
+					'description' => 'Toggle for auto-sync.',
+				),
+				'importer' => array('type' => 'string',
+					'label' => 'Importer',
+					'value'	=> NULL,
+					'description' => 'Machine name of the Feeds importer linked to this node type.',
+				),
+				'cooldown' => array('type' => 'int',
+					'label' => 'Importer cooldown',
+					'value'	=> 30,
+					'description' => 'Number of seconds to delay a second (or more) import on this node type.',
+				),
+				'block_field_edits' => array('type' => 'string',
+					'label' => 'Uneditable fields',
+					'value'	=> array(),
+					'description' => 'Field names (machine ids) on which to disallow edits using the default form.',
+				),
+			)
 	);
 	return $schema;
 }
