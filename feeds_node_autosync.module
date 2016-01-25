@@ -95,7 +95,7 @@ function feeds_node_autosync_node_update( $node ) {
 /**
  * Implements hook_form_alter().
  *
- * Modifies the "node_type" form. Adds configuration options to the node type for auto-sync of content of this type.
+ * Modifies the "node_form" form for any form id ending in "_node_form" (per the initial if). Modifies the form element options to remove editability for protected fields per the node_type settings.
  *
  * @param form
  *   The form array, containing the "current" state of the form.
@@ -105,36 +105,74 @@ function feeds_node_autosync_node_update( $node ) {
  *   String representing the name of the form itself. This is the "FORM_ID" part of the name of the function.
  */
 function feeds_node_autosync_form_alter( &$form, &$form_state, $form_id ) {
-	if (isset($form['type']) && $form['type']['#value'] . '_node_form' == $form_id) {
-		$c = feeds_node_autosync_config($form['#node']->type);
-		if(array_key_exists("title",get_object_vars($c->config->block_field_edits->value)))
-			$form['title']['#type'] = 'value';
-		foreach(get_object_vars($c->config->block_field_edits->value) as $field_name) {
-			if(array_key_exists($field_name,$form)) {
-				$form[$field_name]['#disabled'] = TRUE;
-				//$form[$key]['#readonly'] = 'readonly';
-				$form[$field_name]['#type'] = 'value';
-			}
-		}
-		/*
-		foreach($form as $key=>$value) {
-			//dpm($key);
-			//dpm($value);
-			if(is_array($value))
-				if(array_key_exists('#title',$value)) {
-					$form[$key]['#disabled'] = TRUE;
-					//$form[$key]['#readonly'] = 'readonly';
-					$form[$key]['#type'] = 'value';
-				} else if(is_string($key)) {
-					//$form[$key]['#disabled'] = TRUE;
+	if (isset($form['type']) && isset($form['type']['#value']) && $form['type']['#value'] . '_node_form' == $form_id) {
+		$c = feeds_node_autosync_config($form['#node']->type);		//	Retrieve the configuration
+		$block_edits = get_object_vars($c->config->block_field_edits->value);	//	Store the field ids to "block"
+		$ignore_keys = array(	//	Some of these make no sense to parse, let's ignore them...
+			"#node_edit_form",
+			"#attributes",
+			"#node",
+			"#validate",
+			"#submit",
+			"#parents",
+			"#entity",
+		);
+		$disable_field_names = array();		//	In the interest of keeping the user informed, collect the human-readable titles
+		foreach($block_edits as $field_name) {
+			$fii = field_info_instance('node', $field_name, $form['#node']->type)['label'];
+			if($fii)
+				$disable_field_names[] = $fii;
+			elseif($field_name == 'title') {
+				$types = node_type_get_types();
+				if (isset($types[$form['#node']->type]) && $types[$form['#node']->type]->has_title) {
+					$disable_field_names[] = t($types[$form['#node']->type]->title_label);
 				}
+			} 
 		}
-		*/
+		//	Now let the user know some things are disabled by this module.
+		drupal_set_message(t("The following fields are managed by a remote source with Feeds Auto-Sync, and can't be modified;<br/>%field_names",array('%field_names'=>implode(", ",$disable_field_names))));
+		//	Parse through the form data to add the '#disabled' flag to matching keys.
+		_feeds_node_autosync_traverse_form_data("root",$form,$block_edits,$ignore_keys);
+		//	Block edits is passed by reference, so it should now be enpty. If not, warn the user.
+		if(count($block_edits) > 0 ) {
+			drupal_set_message(t("Something strange has happened. A configured protected field didn't exist in this form. Please verify the %content_type is configured properly with Feeds Auto-Sync.",array('%content_type'=>node_type_get_name($form['#node']->type))),'warning');
+		}
+		//	Since the feed is enforced to contain this information before the settings are validated, simplify the node edit form by removing extra fetcher options.
 		if(array_key_exists('feeds',$form) && array_key_exists('FeedsHTTPFetcher', $form['feeds'])) {
 			$form['feeds']['#disabled'] = TRUE;
 			foreach($form['feeds'] as $key=>$value) {
 				if(preg_match("/^Feeds.+Parser\$/",$key) != 0) unset($form['feeds'][$key]);
 			}
+		}
+	}
+}
+
+/**
+ * Implemented by the above form_altar hook.
+ * 
+ * Recursive search through the form array, to disable "blocked edit" fields.
+ *
+ * @param key
+ *   the key of the branch of form currently being parsed.
+ * @param form
+ *   reference-passed form
+ * @param block_edits
+ *   An array containing the names of the form elements to disable
+ * @param ignore_keys
+ *   An array containing the names of keys to ignore (because they are never form elements)
+ */
+function _feeds_node_autosync_traverse_form_data($key,&$form,&$block_edits,$ignore_keys=array()) {
+	if(!is_numeric($key) && in_array($key,$block_edits)) {
+		$form['#disabled'] = TRUE;
+		$block_edits = array_diff($block_edits, array($key));
+	}
+	if(!in_array($key, $ignore_keys) && count($block_edits) > 0) {
+		if(is_array($form)){
+			$children =  element_children($form);
+			if(is_array($children)&&count($children>0))
+				foreach($children as $childkey){
+					_feeds_node_autosync_traverse_form_data($childkey,$form[$childkey],$block_edits,$ignore_keys);
+				}
 		}
 	}
 }
@@ -385,7 +423,7 @@ function feeds_node_autosync_save_node_type_form_validate ( $form, &$form_state 
  * @param node_type
  *   The node id string
  */
-function feeds_node_autosync_validate_importer($importer_id, $node_type) {
+function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	//	$ret will be returned, these are the keys that should always be there.
 	$ret = array('all' => array(), 'valid' => array(), 'mapped_fields' => array());
 	//	Load the importer and the config thereof
@@ -426,8 +464,8 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 			'fail_message' => t('Fail test successful.'),
 		),*/
 	);
-	if($importer_config['processor']['config']['bundle'] != $node_type) {
-		$ret['all'][$importer_config['name']]['fail_messages'][] = t("Improper node type. ('!node_type_found' needs to be '!node_type_required')",array('!node_type_found'=>$importer_config['processor']['config']['bundle'],'!node_type_required'=>$node_type));
+	if($importer_config['processor']['config']['bundle'] != $bundle) {
+		$ret['all'][$importer_config['name']]['fail_messages'][] = t("Improper node type. ('!node_type_found' needs to be '!node_type_required')",array('!node_type_found'=>$importer_config['processor']['config']['bundle'],'!node_type_required'=>$bundle));
 	}
 	if($importer_config['processor']['config']['update_existing']."" != "2") {
 		$ret['all'][$importer_config['name']]['fail_messages'][] = t("Processor not configured to 'Update existing nodes'. ('!update_existing' value not accepted.)",array('!update_existing'=>$importer_config['processor']['config']['update_existing']));
@@ -442,10 +480,19 @@ function feeds_node_autosync_validate_importer($importer_id, $node_type) {
 		//	Here is built the array of fields for locking
 		//	Also checked here is the existence of a "FEED_URL" on an item level. If the items don't have a "FEED_URL" there is no capacity to auto-sync its data.
 		foreach($importer_config['processor']['config']['mappings'] as $map) {
-			$importer_field = field_info_instance('node',$map['target'],$node_type);
+			$importer_field = field_info_instance('node',$map['target'],$bundle);
 			if($importer_field) {	//	This verifies that the mapped field is a field in the content type
 				$ret['all'][$importer_config['name']]['fields'][$importer_field['field_name']] = t($importer_field['label']);
 				$ret['mapped_fields'][$importer_field['field_name']] = t($importer_field['label']);
+			} else if($map['target'] == 'title') {
+				//	Because the fields API doesn't contain the title the bundle doesn't properly show "title" names...
+				$types = node_type_get_types();
+				if (isset($types[$bundle]) && $types[$bundle]->has_title) {
+					$ret['all'][$importer_config['name']]['fields']['title'] = t($types[$bundle]->title_label);
+					$ret['mapped_fields']['title'] = t($types[$bundle]->title_label);
+				}
+				//dpm("field skipped::");
+				//dpm($map['target']);
 			}
 			foreach($required_maps as $required_fieldname => $requirement_parameters) {
 				if(array_key_exists($requirement_parameters['map_required_key'], $map) && $map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {
@@ -636,5 +683,22 @@ function feeds_node_autosync_feeds_presave(FeedsSource $source, $entity, $item) 
 	if($entity->skip) {
 		$entity->feeds_item->skip = TRUE;
 	}
+}
+
+/**
+ * Implements hook_permission().
+ */
+function feeds_node_autosync_permission() {
+	return array(
+			'bundle configuration form' => array(
+					'title' => t('Configure bundles with Feeds Node Auto-sync'),
+					'description' => t('Access the auto-sync configuration on bundles (E.g. Articles)'),
+			),
+			'edit protected fields' => array(
+					'title' => t('Bypass uneditable field setting'),
+					'description' => t('Configuration allows bundled fields to be uneditable with the form. This permission bypasses that.'),
+			),
+				
+	);
 }
 
