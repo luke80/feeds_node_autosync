@@ -1,0 +1,33 @@
+input.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess input,
+select.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess select,
+textarea.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess textarea,
+button.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess button,
+datalist.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess datalist,
+keygen.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess keygen {
+	background-color:rgba(0,0,0,0.05);
+	border: 1px solid rgba(255,124,0,0.5);
+}
+
+input.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess input,
+select.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess select,
+textarea.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess textarea,
+button.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess button,
+datalist.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess datalist,
+keygen.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
+.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess keygen {
+	background-image:url(/misc/message-24-warning.png);
+	background-position:100% 50%;
+	background-repeat:no-repeat;
+	min-height:24px;
+}

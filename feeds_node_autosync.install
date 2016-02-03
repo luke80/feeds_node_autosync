@@ -1,10 +1,10 @@
 <?php
 /**
- * Implements hook_install().
+ * Implements hook_install()
+ * 
+ * run when installed
  */
 function feeds_node_autosync_install() {
-	dpm("install fna");
-	//module_load_include('inc', 'feeds_node_autosync', 'feeds_node_autosync.ctools');
 	drupal_install_schema('feeds_node_autosync_config');
 	
 	if(db_field_exists('node_type','auto_sync_toggle') == "") {
@@ -30,16 +30,29 @@ function feeds_node_autosync_install() {
 }
 
 /**
- * Implements hook_uninstall().
+ * Implements hook_uninstall()
+ * 
+ * run when uninstalled
  */
 function feeds_node_autosync_uninstall() {
 	db_drop_field('node_type', 'auto_sync_toggle');
 	db_drop_field('node_type', 'auto_sync_config');
 }
+
+/**
+ * Implements hook_disable()
+ * 
+ * run when disabled
+ */
 function feeds_node_autosync_disable() {
 	feeds_node_autosync_uninstall();
 }
 
+/**
+ * Implements hook_schema()
+ * 
+ * must be within the module .install file.
+ */
 function feeds_node_autosync_schema() {
 	$schema['feeds_node_autosync_config'] = array(
 		'description' => 'Structure storing autosync config definitions.',
