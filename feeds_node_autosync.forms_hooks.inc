@@ -223,7 +223,6 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all'])));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			$form_datas['config_problems'][] = t('<h4>"Semi-valid" feed list with requirements unmet:</h4>');
 			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
-				dpm($unvalidated_importer);
 				$form_datas['config_problems'][] = l($key,'admin/structure/feeds/'.$key.'/mapping');
 				if(array_key_exists('fail_messages', $unvalidated_importer)) {
 					foreach($unvalidated_importer['fail_messages'] as $fail_message)
