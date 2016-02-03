@@ -73,7 +73,7 @@ function feeds_node_autosync_form_alter( &$form, &$form_state, $form_id ) {
 			_feeds_node_autosync_traverse_form_data("root",$form,$block_edits,$ignore_keys,$block_edits_nested);
 			//	Block edits is passed by reference, so it should now be enpty. If not, warn the user.
 			if(count($block_edits) > 0 || TRUE) {	//	This isn't an error, it is more of a warning - and hopefully the problem is corrected with the link provided.
-				drupal_set_message(t('Something strange has happened. A configured protected field didn\'t exist in this form. Please verify the %content_type is configured properly with Feeds Auto-Sync.<br/><a href="'.base_path().'admin/structure/feeds/@feed_machine_name/mapping">Change the mappings of %feed_human_name (which drives %content_type) by clicking here.</a>',array('@feed_machine_name'=>$c->config->importer->value,'%feed_human_name'=>$c->config->importer_config['name'],'%content_type'=>node_type_get_name($form['#node']->type))),'warning');
+				drupal_set_message(t('Something strange has happened. A configured protected field didn\'t exist in this form. Please verify the %content_type is configured properly with Feeds Auto-Sync.<br/><a href="@feed_map_url">Change the mappings of %feed_human_name (which drives %content_type) by clicking here.</a>',array('%feed_human_name'=>$c->config->importer_config['name'],'%content_type'=>node_type_get_name($form['#node']->type),'@feed_map_url'=>url('admin/structure/feeds/'.$c->config->importer->value.'/mapping'))),'warning');
 			}
 		}
 		//	Since the feed is enforced to contain this information before the settings are validated, simplify the node edit form by removing extra fetcher options.
@@ -220,10 +220,11 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
 			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 		} else if(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
-			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feeds, but none passed validation.<br/><br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.</p>',array('%num_feeds'=>count($form_datas['importers']['all'])));
+			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all'])));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			$form_datas['config_problems'][] = t('<h4>"Semi-valid" feed list with requirements unmet:</h4>');
 			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
-				$form_datas['config_problems'][] = t("<em>".$key."</em>");
+				dpm($unvalidated_importer);
+				$form_datas['config_problems'][] = l($key,'admin/structure/feeds/'.$key.'/mapping');
 				if(array_key_exists('fail_messages', $unvalidated_importer)) {
 					foreach($unvalidated_importer['fail_messages'] as $fail_message)
 						$form_datas['config_problems'][] = $fail_message;
