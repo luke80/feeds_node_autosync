@@ -9,11 +9,22 @@
 function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
 	watchdog('feeds_node_autosync',t("Autosync feed triggered for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source->importer->getConfig()['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
 	//	Load the config (perhaps we should standardize the variable name loaded for this?)
-	$fna = feeds_node_autosync_config($source->importer->getConfig()['content_type'],NULL,TRUE);
+	if($source->importer->getConfig()['content_type'])
+		$fna = feeds_node_autosync_config($source->importer->getConfig()['content_type'],NULL,TRUE);
+	elseif($source->importer->processor->getConfig()['bundle']) {
+		$fna = feeds_node_autosync_config($source->importer->processor->getConfig()['bundle'],NULL,TRUE);
+	} else {
+		drupal_set_message("Unable to determine target bundle. Can't determine if Feeds Node Auto-sync needs to be suspended on this import.","warning");
+	}
 	if($source->importer->getConfig() != $fna->config->importer_config) {
 		//	Alert the user that autosync has been temporarily suspended due to "large batch" import.
 		drupal_set_message(t("%active_importer importing to %node_type which is configured to auto-feed from %configured_importer. Temporarily suspending auto-sync for this content type until this import completes.",array('%active_importer'=>$source->importer->getConfig()['name'],'%node_type'=>node_type_get_name($source->importer->getConfig()['content_type']),'%configured_importer'=>$fna->config->importer_config->name)));
-		$fna->config->active_preimport = clone $fna->config->active;	//	Save this to reset the values after the import completes.
+		if(!is_object($fna->config->active)) {
+			drupal_set_message(t("yep, it's not an object."));
+			$fna->config->active = clone $fna->default_config->active;
+		}
+		else
+			$fna->config->active_preimport = clone $fna->config->active;	//	Save this to reset the values after the import completes.
 		$fna->config->active->value = -1;	//	-1 is a semi-reserved value for 'active' which indicates the temporary suspension
 		feeds_node_autosync_config($source->importer->getConfig()['content_type'],$fna);	//	Save the temporary suspension.
 	}
@@ -28,7 +39,13 @@ function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
  */
 function feeds_node_autosync_feeds_after_import( FeedsSource $source ) {
 	//	Load the config (perhaps we should standardize the variable name loaded for this?)
-	$fna = feeds_node_autosync_config($source->importer->getConfig()['content_type']);
+	if($source->importer->getConfig()['content_type'])
+		$fna = feeds_node_autosync_config($source->importer->getConfig()['content_type'],NULL,TRUE);
+	elseif($source->importer->processor->getConfig()['bundle']) {
+		$fna = feeds_node_autosync_config($source->importer->processor->getConfig()['bundle'],NULL,TRUE);
+	} else {
+		//drupal_set_message("Unable to determine target bundle. Can't determine if Feeds Node Auto-sync needs to be suspended on this import.","warning");
+	}
 	if($source->importer->getConfig()['name'] != $fna->config->importer->value && $fna->config->active->value == -1) {
 		drupal_set_message(t("%active_importer import complete. Resetting 'active' parameter on %configured_importer to %active.",array('%active_importer'=>$source->importer->getConfig()['name'],'%configured_importer'=>$fna->config->importer->value,'%active'=>($fna->config->active_preimport->value==1)?"Active":(($fna->config->active_preimport->value==0)?"Inactive":"Still importing. This is an error. Please deactivate and re-activate this setting in the content type."))));
 		$fna->config->active->value = $fna->config->active_preimport->value;
