@@ -86,6 +86,8 @@ function feeds_node_autosync_config( $node_type, $config_obj = NULL, $retrieve_i
 			$config_str = $config_db['auto_sync_config'];
 			//	Turn it into the object...
 			$config_obj = json_decode($config_str);
+			if(!is_object($config_obj->config->block_field_edits->value))	//	This should always be an object.
+				$config_obj->config->block_field_edits->value = (object) $config_obj->config->block_field_edits->value;
 			if($retrieve_importer_config) {
 				//	Retrieve the importer configuration
 				$importer = feeds_importer($config_obj->config->importer->value);
