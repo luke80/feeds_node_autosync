@@ -31,3 +31,13 @@ keygen.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
 	background-repeat:no-repeat;
 	min-height:24px;
 }
+
+.fna-feedback-header {
+	font-size:150%;
+	margin-top:0.5em;
+	margin-bottom:0.25em;
+}
+
+.fna-feedback > * {
+	max-width: 35em;
+}
