@@ -223,27 +223,6 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				$form_datas['importer_mapped_fields_messages'] =	array_merge($form_datas['importer_mapped_fields_messages'], $validation_data['mapped_fields_messages']);
 			}
 		}
-		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
-			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
-		} else if(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
-			$form_datas['config_problems'][] =	t('<p>To auto-sync your %content_type nodes, there must be a Feed set up which the auto-sync can use. There are a number of required mappings (columns, records, or other from your remote data which are imported into defined locations inside your %content_type nodes). Displayed here are specific messages generated because of a problem or problems with your configured Feeds.</p',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
-			$form_datas['config_problems'][] =	t('<p>It is recommended that you set up two separate Feeds importers with the following purposes:</p>');
-			$form_datas['config_problems'][] =	t('<ul><li>Main "all records" feed, which updates/imports all your content together (probably on a schedule).</li><li>Secondary "single records" feed, which is driven by a source which is specifically configured to provides information about only the one record reflected in the attached node.</li></ul>');
-			$form_datas['config_problems'][] =	t('<p>To help all of this make sense to you; to use only one importer you would have to create all your %content_type items by hand, and specify the URL which "Feeds" them upon creation. But, if the data exists in a "Feedable" way, then you probably want to both create <em>and</em> update them with a feed. However, those are two distinct purposes and you need separate and distinct feeds to accomplish this. For this reason it is required to have both "feeds_source" and "url" destinations mapped in your processor.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
-			$form_datas['config_problems'][] =	t('<p>Also, since this process is built on top of a functioning Feed, you need to have used a Feed to create/update at least one of your %content_type items already. For final validation, the content type needs to be bound to the node form, but to perform the "manual feed" you\'ll need to temporarily detach it from that form (as in use the "standalone form" option) and then change it back after manually importing once.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
-			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all'])));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
-			$form_datas['config_problems'][] = t('<div class="fna-feedback-header">"Semi-valid" feed list with requirements unmet:</div>');
-			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
-				$form_datas['config_problems'][] = l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping');
-				if(array_key_exists('fail_messages', $unvalidated_importer)) {
-					foreach($unvalidated_importer['fail_messages'] as $fail_message)
-						$form_datas['config_problems'][] = $fail_message;
-				}
-			}
-		} else if(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
-			$form_datas['config_problems'][] =	t('<p class="error">It appears that your <em>processor</em> is either missing or is not set up to connect to this content type with any imported columns. Additionally, you are also required to have at least one unique identifier mapped to this content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
-		}
-
 		//	Verify successful import of nodes with 'FEED_URL' set in db.
 		$missing_nodes_error = t('<p>Before setting auto-update on a content type, you need to successfully sync your nodes manually at least once.</p><p>(No&nbsp;\'feed_source\'&nbsp;data&nbsp;found. This is required to map. Otherwise the individual items won\'t have a location to sync from.)</p>');
 		foreach($form_datas['importers']['valid'] as $importer_name=>$importer) {
@@ -274,6 +253,26 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		unset($result);
 		unset($missing_nodes_error);
 
+			if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
+			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+		} else if(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
+			$form_datas['config_problems'][] = t('<div class="fna-feedback-header">Validation errors</div>');
+			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p><div>Importers with errors:</div>',array('%num_feeds'=>count($form_datas['importers']['all'])));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
+			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
+				$form_datas['config_problems'][] = l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping');
+				if(array_key_exists('fail_messages', $unvalidated_importer)) {
+					foreach($unvalidated_importer['fail_messages'] as $fail_message)
+						$form_datas['config_problems'][] = $fail_message;
+				}
+			}
+			$form_datas['config_problems'][] =	t('<div class="fna-feedback-header">Here\'s some help</div><p>To auto-sync your %content_type nodes, there must be a Feed set up which the auto-sync can use. There are a number of required mappings (columns, records, or other from your remote data which are imported into defined locations inside your %content_type nodes). Displayed above are specific errors generated because of a problem or problems with your configured Feeds.</p',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+			$form_datas['config_problems'][] =	t('<p>It is recommended that you set up two separate Feeds importers with the following purposes:</p>');
+			$form_datas['config_problems'][] =	t('<ul><li>Main "all records" feed, which updates/imports all your content together (probably on a schedule).</li><li>Secondary "single records" feed, which is driven by a source which is specifically configured to provides information about only the one record reflected in the attached node.</li></ul>');
+			$form_datas['config_problems'][] =	t('<p>To help all of this make sense to you; to use only one importer you would have to create all your %content_type items by hand, and specify the URL which "Feeds" them upon creation. But, if the data exists in a "Feedable" way, then you probably want to both create <em>and</em> update them with a feed. However, those are two distinct purposes and you need separate and distinct feeds to accomplish this. For this reason it is required to have both "feeds_source" and "url" destinations mapped in your processor.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+			$form_datas['config_problems'][] =	t('<p>Also, since this process is built on top of a functioning Feed, you need to have used a Feed to create/update at least one of your %content_type items already. For final validation, the content type needs to be bound to the node form, but to perform the "manual feed" you\'ll need to temporarily detach it from that form (as in use the "standalone form" option) and then change it back after manually importing once.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+		} else if(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
+			$form_datas['config_problems'][] =	t('<p class="error">It appears that your <em>processor</em> is either missing or is not set up to connect to this content type with any imported columns. Additionally, you are also required to have at least one unique identifier mapped to this content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+		}
 		/*
 		 *	Finally! Begin modifications to the form
 		*/
@@ -485,26 +484,26 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
 					'storage_key' => 'processor_includes_unique',
-					'fail_message' => t('You need to map at least one field as an unique marker per record, otherwise it can\'t differentiate between items.'),
+					'fail_message' => t('At least one unique field is required, otherwise it can\'t differentiate between items.'),
 			),
 			'unique_field' => array(
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
 					'map_required_field_key_not' => 'guid',
 					'storage_key' => 'processor_includes_unique_field',
-					'fail_message' => t('You need to map at least one field as an unique marker per record (not counting the Feeds-created GUID field), otherwise multiple feeds will result in duplicate records. You do this in the validation settings on the fields within the Content type.'),
+					'fail_message' => t('At least one unique field is required (not counting the Feeds-created GUID field), otherwise multiple feeds to the same content type will result in duplicate records. You do this in the validation settings on the fields within the content type.'),
 			),
 			'url' => array(
 					'map_required_key' => 'target',
 					'map_required_value' => 'url',
 					'storage_key' => 'feed_url_mapped',
-					'fail_message' => t('You need to map a URL to the "Feeds importer"-added bundle field, otherwise the item can\'t be synced when edited. This is not a field you add to the bundle, it must be the one added by Feeds.'),
+					'fail_message' => t('URL must be mapped. The Feeds module adds this field to the bundle, map this one otherwise the item can\'t be synced when edited. This is not a field you add to the bundle, it must be the one added by Feeds.'),
 			),
 			'feed_source' => array(
 				'map_required_key' => 'target',
 				'map_required_value' => 'feeds_source',
 				'storage_key' => 'feed_source_mapped',
-				'fail_message' => t('You need to map the feed_source.'),
+				'fail_message' => t('feed_source must be mapped. This is a field added by the Feeds module.'),
 			),
 			/*'not_found' => array(
 			 'map_required_key' => 'never_there',
