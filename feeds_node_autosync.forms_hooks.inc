@@ -492,13 +492,13 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					'map_required_value' => 1,
 					'map_required_field_key_not' => 'guid',
 					'storage_key' => 'processor_includes_unique_field',
-					'fail_message' => t('You need to map at least one field as an unique marker per record in addition to a GUID, otherwise multiple feeds will result in duplicate records.'),
+					'fail_message' => t('You need to map at least one field as an unique marker per record (not counting the Feeds-created GUID field), otherwise multiple feeds will result in duplicate records. You do this in the validation settings on the fields within the Content type.'),
 			),
 			'url' => array(
 					'map_required_key' => 'target',
 					'map_required_value' => 'url',
 					'storage_key' => 'feed_url_mapped',
-					'fail_message' => t('You need to map the URL for each item, otherwise the item can\'t be synced when edited.'),
+					'fail_message' => t('You need to map a URL to the "Feeds importer"-added bundle field, otherwise the item can\'t be synced when edited. This is not a field you add to the bundle, it must be the one added by Feeds.'),
 			),
 			'feed_source' => array(
 				'map_required_key' => 'target',
