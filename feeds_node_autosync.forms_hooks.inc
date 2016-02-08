@@ -252,14 +252,16 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		unset($form_datas['nids']);
 		unset($result);
 		unset($missing_nodes_error);
-
-			if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
+		
+		$general_errors = FALSE;
+		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
 			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+			$general_errors = TRUE;
 		} else if(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
-			$form_datas['config_problems'][] = t('<div class="fna-feedback-header">Validation errors</div>');
+			$form_datas['config_problems'][] = t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>');
 			$form_datas['config_problems'][] =	t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p><div>Importers with errors:</div>',array('%num_feeds'=>count($form_datas['importers']['all'])));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
-				$form_datas['config_problems'][] = l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping');
+				$form_datas['config_problems'][] = '<div class="fna-subhead fna-importer-link">'.l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping').'</div>';
 				if(array_key_exists('fail_messages', $unvalidated_importer)) {
 					foreach($unvalidated_importer['fail_messages'] as $fail_message)
 						$form_datas['config_problems'][] = $fail_message;
@@ -271,6 +273,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			$form_datas['config_problems'][] =	t('<p>To help all of this make sense to you; to use only one importer you would have to create all your %content_type items by hand, and specify the URL which "Feeds" them upon creation. But, if the data exists in a "Feedable" way, then you probably want to both create <em>and</em> update them with a feed. However, those are two distinct purposes and you need separate and distinct feeds to accomplish this. For this reason it is required to have both "feeds_source" and "url" destinations mapped in your processor.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 			$form_datas['config_problems'][] =	t('<p>Also, since this process is built on top of a functioning Feed, you need to have used a Feed to create/update at least one of your %content_type items already. For final validation, the content type needs to be bound to the node form, but to perform the "manual feed" you\'ll need to temporarily detach it from that form (as in use the "standalone form" option) and then change it back after manually importing once.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 		} else if(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
+			$general_errors = TRUE;
 			$form_datas['config_problems'][] =	t('<p class="error">It appears that your <em>processor</em> is either missing or is not set up to connect to this content type with any imported columns. Additionally, you are also required to have at least one unique identifier mapped to this content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 		}
 		/*
@@ -278,12 +281,16 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		*/
 		//	If there are errors to display, display them.
 		if(count($form_datas['config_problems']) != 0) {
+			if($general_errors)
+				array_unshift($form_datas['config_problems'], t('<div class="fna-feedback-header fna-subhead">General validation errors</div>'));
+			array_unshift($form_datas['config_problems'], t('<div class="fna-feedback-header">Validation errors</div>'));
 			$form['feeds_auto_sync']['fna_errors']  = array(
 					'#markup' => t('<section class="fna-feedback"><div>'.implode("</div><div>",$form_datas['config_problems']).'</div></section>'),
 			);
 			//	Since the form settings don't matter if they can't work, hide them.
 			return true;
 		}
+		unset($general_errors);
 		//	Main control setting. Destination: `node_type`.`auto_sync_toggle`
 		$form['feeds_auto_sync']['fna_active']  = array(
 				'#type' => 'checkbox',
@@ -478,32 +485,33 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	$ret['all'][$importer_config['id']]['name'] = $importer_config['name'];
 	$ret['all'][$importer_config['id']]['description'] = $importer_config['description'];
 	$ret['all'][$importer_config['id']]['id'] = $importer_config['id'];
+	$ret['all'][$importer_config['id']]['valid'] = FALSE;
 	//	This structure is used to define the criteria the mappings will be either validated or invalidated against.
 	$required_maps = array(
-			'unique' => array(
+			/*'unique' => array(
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
 					'storage_key' => 'processor_includes_unique',
-					'fail_message' => t('At least one unique field is required, otherwise it can\'t differentiate between items.'),
-			),
+					'fail_message' => t('At least one <em>unique</em> field is required, otherwise it can\'t differentiate between items.'),
+			),*/
 			'unique_field' => array(
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
 					'map_required_field_key_not' => 'guid',
 					'storage_key' => 'processor_includes_unique_field',
-					'fail_message' => t('At least one unique field is required (not counting the Feeds-created GUID field), otherwise multiple feeds to the same content type will result in duplicate records. You do this in the validation settings on the fields within the content type.'),
+					'fail_message' => t('<strong>At least one <em>unique</em> field is required.</strong> Multiple feeds to the same content type will result in duplicate records without this. (The Feeds-created GUID field is insufficient.) ').l('To make some fields unique requires validation settings on the field within the content type.','admin/structure/types/manage/'.$bundle.'/fields'),
 			),
 			'url' => array(
 					'map_required_key' => 'target',
 					'map_required_value' => 'url',
 					'storage_key' => 'feed_url_mapped',
-					'fail_message' => t('URL must be mapped. The Feeds module adds this field to the bundle, map this one otherwise the item can\'t be synced when edited. This is not a field you add to the bundle, it must be the one added by Feeds.'),
+					'fail_message' => t('<strong><em>URL</em> must be mapped.</strong> The Feeds module adds this field to the bundle.'),
 			),
 			'feed_source' => array(
 				'map_required_key' => 'target',
 				'map_required_value' => 'feeds_source',
 				'storage_key' => 'feed_source_mapped',
-				'fail_message' => t('feed_source must be mapped. This is a field added by the Feeds module.'),
+				'fail_message' => t('<strong><em>feed_source</em> must be mapped.</strong> This is a field added by the Feeds module.'),
 			),
 			/*'not_found' => array(
 			 'map_required_key' => 'never_there',
@@ -537,16 +545,16 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	);
 	//	There are a number of basic criteria that invalidate feeds easily.
 	if($importer_config['processor']['config']['bundle'] != $bundle) {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("Improper node type. ('!node_type_found'&nbsp;needs&nbsp;to&nbsp;be&nbsp;'!node_type_required')",array('!node_type_found'=>$importer_config['processor']['config']['bundle'],'!node_type_required'=>$bundle));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Content type mismatch.</strong> ".((strlen($importer_config['processor']['config']['bundle'])>0)?" (%node_type_found&nbsp;needs&nbsp;to&nbsp;be&nbsp;%node_type_required.)":" Importer not bound to any content-type."),array('%node_type_found'=>node_type_get_name($importer_config['processor']['config']['bundle']),'%node_type_required'=>node_type_get_name($bundle)));
 	}
 	if($importer_config['processor']['config']['update_existing']."" != "2") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("Processor not configured to 'Update existing nodes'. ('!update_existing'&nbsp;value&nbsp;not&nbsp;accepted.)",array('!update_existing'=>$importer_config['processor']['config']['update_existing']));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Importer processor setting (requred): <em>" . _feeds_node_autosync_get_update_setting_text(2). "</em></strong> (It&nbsp;is&nbsp;currently:%update_existing.)",array('%update_existing'=>_feeds_node_autosync_get_update_setting_text($importer_config['processor']['config']['update_existing'])));
 	}
 	if($importer_config['processor']['config']['update_non_existent']."" != "skip") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("Processor not configured to 'skip non-existent nodes'. ('!update_non_existent'&nbsp;value&nbsp;not&nbsp;accepted.)",array('!update_non_existent'=>$importer_config['processor']['config']['update_non_existent']));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Importer processor setting (requred): <em>" . _feeds_node_autosync_get_updatenew_setting_text("skip") . "</em>.</strong> (It&nbsp;is&nbsp;currently:%update_non_existent.)",array('%update_non_existent'=>_feeds_node_autosync_get_updatenew_setting_text($importer_config['processor']['config']['update_non_existent'])));
 	}
 	if($importer_config['processor']['config']['skip_hash_check']."" != "1") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("Processor not configured to 'skip hash check'. ('!skip_hash_check'&nbsp;value&nbsp;not&nbsp;accepted.)",array('!skip_hash_check'=>$importer_config['processor']['config']['skip_hash_check']));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Importer processor setting (requred): <em>Skip hash check</em> must be <em>on</em>.</strong> (It&nbsp;is currently&nbsp;%skip_hash_check.)",array('%skip_hash_check'=>(($importer_config['processor']['config']['skip_hash_check'])?"on":"off")));
 	}
 	if(count($ret['all'][$importer_config['id']]['fail_messages']) == 0) {
 		//	Here is built the array of fields for locking
@@ -560,7 +568,8 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					$ignore = TRUE;
 				} elseif($data['ignore_match'] == $map['target']) {
 					$ignore = TRUE;
-				} elseif(
+				} elseif (
+						//	Fairly complex widet-type ignore mode
 						$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
 						array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
 						$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
@@ -587,6 +596,8 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				if (isset($types[$bundle]) && $types[$bundle]->has_title) {
 					$ret['all'][$importer_config['id']]['fields']['title'] = t($types[$bundle]->title_label);
 					$ret['mapped_fields']['title'] = t($types[$bundle]->title_label);
+				} else {
+					//	This bundle doesn't have a title... so it shouldn't have a map to it.
 				}
 			} elseif(!$ignore) {
 				$label = (($importer_field) ? t($importer_field['label']): $map['target']);
@@ -594,18 +605,23 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					$label .= substr($map['target'],strpos($map['target'],":"));
 				$ret['all'][$importer_config['id']]['fields'][$map['target']] = $label;
 				$ret['mapped_fields'][$map['target']] = $label;
+				unset($label);
 			}
+			//	Now - check the required maps list!
 			foreach($required_maps as $required_fieldname => $requirement_parameters) {
-				//	Complicated match criteria!
-				if(
-					array_key_exists($requirement_parameters['map_required_key'], $map) &&	//	if required key
-					$map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value'] &&	//	and required value
-					(	//	and
-						!array_key_exists('map_required_field_key_not',$requirement_parameters) ||	//	there isn't one it can't be
-						$requirement_parameters['map_required_field_key_not'] != $map['target']		//	or is the one it needs to be
-					)
-				) {
-					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing to TRUE
+				//	Complicated validation match criteria!
+				if(array_key_exists($requirement_parameters['map_required_key'], $map)) {	//	if this is the required key
+					if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {	//	and is the required value
+						if(!array_key_exists('map_required_field_key_not',$requirement_parameters)) {
+							//	There isn't a key that needs to be checked (to make sure it's not present)
+							$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
+						} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
+							$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
+						} else {
+							$ret['all'][$importer_config['id']]['valid'] = FALSE;
+							$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
+						}
+					}
 				}
 			}
 			unset($importer_field);	//	Since this is no longer needed, why not delete it?
@@ -633,3 +649,44 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	return $ret;
 }
 
+/*
+ * Implemented by the above validation handler
+ * 
+ * @param update_setting_id
+ * 	Contains an integer refelctive of an "update" setting for Feeds
+ */
+function _feeds_node_autosync_get_update_setting_text($update_setting_id) {
+	switch($update_setting_id) {
+		case 0:
+			return "Do not update existing nodes";
+			break;
+		case 1:
+			return "Replace existing nodes";
+			break;
+		case 2:
+		default:
+			return "Update existing nodes";
+			break;
+	}
+}
+
+/*
+ * Implemented by the above validation handler
+*
+* @param update_setting_id
+* 	Contains an string refelctive of an "update" setting for Feeds
+*/
+function _feeds_node_autosync_get_updatenew_setting_text($update_setting_id) {
+	switch($update_setting_id) {
+		case "delete":
+			return t("Delete non-existent nodes");
+			break;
+		case "unpublish":
+			return t("Unpublish non-existent nodes");
+			break;
+		case "skip":
+		default:
+			return t("Skip non-existent nodes");
+			break;
+	}
+}

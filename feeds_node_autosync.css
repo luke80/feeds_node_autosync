@@ -38,6 +38,14 @@ keygen.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
 	margin-bottom:0.25em;
 }
 
+
+.fna-feedback .fna-subhead {
+	font-size:125%;
+}
 .fna-feedback > * {
 	max-width: 35em;
+}
+
+.fna-importer-link {
+	margin-top:1em;
 }
