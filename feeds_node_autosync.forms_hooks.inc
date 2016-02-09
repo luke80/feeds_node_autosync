@@ -553,16 +553,16 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	);
 	//	There are a number of basic criteria that invalidate feeds easily.
 	if($importer_config['processor']['config']['bundle'] != $bundle) {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Content type mismatch.</strong> ".((strlen($importer_config['processor']['config']['bundle'])>0)?"<br/>(%node_type_found&nbsp;needs&nbsp;to&nbsp;be&nbsp;%node_type_required.)":" Importer not bound to any content-type."),array('%node_type_found'=>node_type_get_name($importer_config['processor']['config']['bundle']),'%node_type_required'=>node_type_get_name($bundle)));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong>Content type problem.</strong> ".((strlen($importer_config['processor']['config']['bundle'])>0)?"<br/>(%node_type_found&nbsp;needs&nbsp;to&nbsp;be&nbsp;%node_type_required.)":" Importer not bound to any content-type."),array('%node_type_found'=>node_type_get_name($importer_config['processor']['config']['bundle']),'%node_type_required'=>node_type_get_name($bundle)));
 	}
 	if($importer_config['processor']['config']['update_existing']."" != "2") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>" . _feeds_node_autosync_get_update_setting_text(2). "</em></strong>, requred importer processor setting<br/>(It&nbsp;is&nbsp;currently:%update_existing.)",array('%update_existing'=>_feeds_node_autosync_get_update_setting_text($importer_config['processor']['config']['update_existing'])));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>" . _feeds_node_autosync_get_update_setting_text(2). "</em></strong>, required importer processor setting.<br/>(It&nbsp;is&nbsp;currently:%update_existing.)",array('%update_existing'=>_feeds_node_autosync_get_update_setting_text($importer_config['processor']['config']['update_existing'])));
 	}
 	if($importer_config['processor']['config']['update_non_existent']."" != "skip") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>" . _feeds_node_autosync_get_updatenew_setting_text("skip") . "</em></strong>, requred importer processor setting<br/>(It&nbsp;is&nbsp;currently:%update_non_existent.)",array('%update_non_existent'=>_feeds_node_autosync_get_updatenew_setting_text($importer_config['processor']['config']['update_non_existent'])));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>" . _feeds_node_autosync_get_updatenew_setting_text("skip") . "</em></strong>, required importer processor setting.<br/>(It&nbsp;is&nbsp;currently:%update_non_existent.)",array('%update_non_existent'=>_feeds_node_autosync_get_updatenew_setting_text($importer_config['processor']['config']['update_non_existent'])));
 	}
 	if($importer_config['processor']['config']['skip_hash_check']."" != "1") {
-		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>Skip hash check</em> must be <em>on</em></strong>, requred importer processor setting<br/>(It&nbsp;is currently&nbsp;%skip_hash_check.)",array('%skip_hash_check'=>(($importer_config['processor']['config']['skip_hash_check'])?"on":"off")));
+		$ret['all'][$importer_config['id']]['fail_messages'][] = t("<strong><em>Skip hash check</em> must be <em>on</em></strong>, required importer processor setting<br/>(It&nbsp;is currently&nbsp;%skip_hash_check.)",array('%skip_hash_check'=>(($importer_config['processor']['config']['skip_hash_check'])?"on":"off")));
 	}
 	if(count($ret['all'][$importer_config['id']]['fail_messages']) == 0) {
 		//	Here is built the array of fields for locking
