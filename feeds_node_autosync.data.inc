@@ -50,58 +50,59 @@ function feeds_node_autosync_config( $node_type, $config_obj = NULL, $retrieve_i
 			->fields(array('auto_sync_config' => $config_str))
 			->condition('type', $node_type)
 			->execute();
-		if($num_updated > 0)
-			return $num_updated;
-		else
+		if($num_updated == 0) {
 			return FALSE;
-	} else {	//	The above always ends with a 'return' so this section doesn't strictly need to be in an 'else', but for legibility I've left it in one.
-		//	recall the existing settings from the database.
+		} else {
+			watchdog('feeds_node_autosync',t("Content type @content_type configuration updated.",array("@content_type"=>node_type_get_name($node_type))),NULL,WATCHDOG_DEBUG);
+			//return $num_updated;	//	Commented out to allow return object, even when re-setting the config.
+		}
+	}
+	//	recall the existing settings from the database.
+	$result = db_select('node_type', 'nt')
+		->fields('nt', array('auto_sync_config'))
+		->condition('nt.type',$node_type)
+		->range(0,1)
+		->execute();
+	$config_db = $result->fetchAssoc();
+	//	if there isn't one - get the default and set that, also load it into the '$result' container.
+	if($result->rowCount() == 0 || $config_db == array('auto_sync_config'=>NULL) || $config_db == NULL) {
+		module_load_install('feeds_node_autosync');		//	the install script contains the schema. First we load it.
+		$config = feeds_node_autosync_schema();		//	Then we get the default schema.
+		$config = $config['feeds_node_autosync_config'];	//	 We don't need that root element...
+		$config['config'] = $config['default_config'];	//	Then we "copy" the default into place.
+		$config_str = json_encode($config);		//	We need the string version to store in the database.
+		$num_updated = db_update('node_type')
+			->fields(array('auto_sync_config' => $config_str))
+			->condition('type', $node_type)
+			->execute();		//	Put it in the database!
 		$result = db_select('node_type', 'nt')
 			->fields('nt', array('auto_sync_config'))
 			->condition('nt.type',$node_type)
 			->range(0,1)
 			->execute();
-		$config_db = $result->fetchAssoc();
-		//	if there isn't one - get the default and set that, also load it into the '$result' container.
-		if($result->rowCount() == 0 || $config_db == array('auto_sync_config'=>NULL) || $config_db == NULL) {
-			module_load_install('feeds_node_autosync');		//	the install script contains the schema. First we load it.
-			$config = feeds_node_autosync_schema();		//	Then we get the default schema.
-			$config = $config['feeds_node_autosync_config'];	//	 We don't need that root element...
-			$config['config'] = $config['default_config'];	//	Then we "copy" the default into place.
-			$config_str = json_encode($config);		//	We need the string version to store in the database.
-			$num_updated = db_update('node_type')
-				->fields(array('auto_sync_config' => $config_str))
-				->condition('type', $node_type)
-				->execute();		//	Put it in the database!
-			$result = db_select('node_type', 'nt')
-				->fields('nt', array('auto_sync_config'))
-				->condition('nt.type',$node_type)
-				->range(0,1)
-				->execute();
-			$config_db = $result->fetchAssoc();		//	Retrieve it from the database (to ensure that what the function returns is literally what the database contains).
-		}
-		//	Failure checking.
-		if($result->rowCount() > 0) {
-			//	Get the database string
-			$config_str = $config_db['auto_sync_config'];
-			//	Turn it into the object...
-			$config_obj = json_decode($config_str);
-			if(!is_object($config_obj->config->block_field_edits->value))	//	This should always be an object.
-				$config_obj->config->block_field_edits->value = (object) $config_obj->config->block_field_edits->value;
-			if($retrieve_importer_config) {
-				//	Retrieve the importer configuration
-				$importer = feeds_importer($config_obj->config->importer->value);
-				if($importer) {
-					$config_obj->config->importer_config = $importer->getConfig();
-				}
-			}
-			//	Return the result!
-			return $config_obj;
-		} elseif($node_type != "") {
-			//	In case of error, let the user know it failed.
-			drupal_set_message(t("Failure to store the default configuration for node type %node_type in the database. Configuration not set. Proceed with caution.",array("%node_type"=>$node_type)), 'error', TRUE);
-			return $config;
-		} else
-			return false;
+		$config_db = $result->fetchAssoc();		//	Retrieve it from the database (to ensure that what the function returns is literally what the database contains).
 	}
+	//	Failure checking.
+	if($result->rowCount() > 0) {
+		//	Get the database string
+		$config_str = $config_db['auto_sync_config'];
+		//	Turn it into the object...
+		$config_obj = json_decode($config_str);
+		if(!is_object($config_obj->config->block_field_edits->value))	//	This should always be an object.
+			$config_obj->config->block_field_edits->value = (object) $config_obj->config->block_field_edits->value;
+		if($retrieve_importer_config) {
+			//	Retrieve the importer configuration
+			$importer = feeds_importer($config_obj->config->importer->value);
+			if(is_object($importer) && $importer) {
+				$config_obj->config->importer_config = $importer->getConfig();
+			}
+		}
+		//	Return the result!
+		return $config_obj;
+	} elseif($node_type != "") {
+		//	In case of error, let the user know it failed.
+		drupal_set_message(t("Failure to store the default configuration for node type %node_type in the database. Configuration not set. Proceed with caution.",array("%node_type"=>$node_type)), 'error', TRUE);
+		return $config;
+	} else
+		return false;
 }
