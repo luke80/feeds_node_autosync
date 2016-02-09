@@ -262,7 +262,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		unset($missing_nodes_error);
 		
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
-			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! Sorry, but you\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! You\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 			$general_errors = TRUE;
 		} elseif(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
 			$form_datas['config_problems'][] = t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>');
