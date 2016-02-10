@@ -48,7 +48,7 @@ function feeds_node_autosync_form_alter( &$form, &$form_state, $form_id ) {
 					drupal_set_message(t('Failed to block edits on the title. It looks like %content_type doesn\'t have one?',array('%content_type'=>node_type_get_name($form['#node']->type))),'warning');
 				}
 				unset($types);
-			} elseif($field_name == $c->config->block_field_edits->value->{$field_name}) {
+			} elseif(is_object($c->config->block_field_edits->value) && property_exists($c->config->block_field_edits->value,$field_name) && $field_name == $c->config->block_field_edits->value->{$field_name}) {
 				//	get_object_vars was meant to give me an array of exactly this structure, however occasionally something gets mixed up. First we verify.
 				if(strpos($field_name,":") > -1) {	//	if the name contains a ":" it means we're targetting a sub-field, referred to here as "nested"!
 					$remove_items_block_edits[] = $field_name;	//	remove this item from the structure... later
