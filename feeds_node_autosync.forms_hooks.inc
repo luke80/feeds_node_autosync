@@ -226,7 +226,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			}
 		}
 		//	Verify successful import of nodes with 'FEED_URL' set in db.
-		$missing_nodes_error = t('<div><strong>Before setting auto-update on a content type, you need to successfully sync your nodes manually at least once.</strong></div><div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>');
+		$missing_nodes_error = t('Before auto-update can work, the content needs come from a feed. This means you first manually import your data at least once to establish this connection.');		//	<div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>
 		foreach($form_datas['importers']['valid'] as $importer_name=>$importer) {
 			if(strlen($form_datas['importers']['all'][$importer_name]['bundle']) == 0) {
 				$missing_nodes_error .= l(t('Click here to go import page for @importer (please don\'t forget to change this back to the content type when you\'re done)',array('@importer'=>$importer)),'import/'.$importer_name);
@@ -255,14 +255,14 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			}
 		} else if(count($form_datas['nids']) == 0) {
 			$general_errors = TRUE;
-			$form_datas['config_problems'][] = t("<div><strong>No %content_type nodes have been created.</strong></div>",array("%content_type"=>node_type_get_name($form['#node_type']->type))).$missing_nodes_error;
+			$form_datas['config_problems'][] = "<div>".t("<strong>No %content_type nodes have been created.</strong> ",array("%content_type"=>node_type_get_name($form['#node_type']->type))).$missing_nodes_error."</div>";
 		}
 		unset($form_datas['nids']);
 		unset($result);
 		unset($missing_nodes_error);
 		
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
-			$form_datas['config_problems'][] =	t('<p class="error">You don\'t even have an importer set up yet! You\'ll have to set one up with this content type %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
+			array_unshift($form_datas['config_problems'],	t('<p class="error">You don\'t even have an importer set up yet! You\'ll have to create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),strlen(node_type_get_name($form['#node_type']->type)-2)) != "s")?"s":""))));
 			$general_errors = TRUE;
 		} elseif(count($form_datas['importers']['valid']) == 0) {	//	Second problem to identify. No valid importers!
 			$form_datas['config_problems'][] = t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>');
