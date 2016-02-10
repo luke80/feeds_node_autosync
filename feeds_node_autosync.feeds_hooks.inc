@@ -151,12 +151,12 @@ function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transacti
  * 	Implemented by above functions which need to retrieve an attached auto-sync content type from a feed by name
  *
  */
-function _feeds_node_autosync_retrieve_importer(FeedsSource $source,$log_transaction=FALSE) {
+function _feeds_node_autosync_retrieve_importer(FeedsSource $source, $log_transaction=FALSE) {
 	$source_importer_config = NULL;
 	if(is_object($source->importer) && is_array($source->importer->getConfig())) {
 		$source_importer_config = $source->importer->getConfig();
 		if($log_transaction)
-			watchdog('feeds_node_autosync',t("Auto-sync source importer known and retrieved. %importer_name",array("%importer_name"=>$source_importer_config->name)),NULL,WATCHDOG_DEBUG);
+			watchdog('feeds_node_autosync',t("Auto-sync source importer known and retrieved. %importer_name",array("%importer_name"=>$source_importer_config['name'])),NULL,WATCHDOG_DEBUG);
 	}
-	return $source_importer;
+	return $source_importer_config;
 }
