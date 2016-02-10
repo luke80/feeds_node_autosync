@@ -119,6 +119,8 @@ function feeds_node_autosync_feeds_presave(FeedsSource $source, $entity, $item) 
 /**
  * 	Implemented by above functions which need to retrieve an attached auto-sync content type from a feed by name
  * 
+ * @param FeedsSource $source
+ *   The FeedsSource object of the feed_source...
  */
 function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transaction=FALSE) {
 	$node_type = "Unknown node type";
@@ -150,6 +152,8 @@ function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transacti
 /**
  * 	Implemented by above functions which need to retrieve an attached auto-sync content type from a feed by name
  *
+ *	@param FeedsSource $source
+ *   The FeedsSource object of the feed_source...
  */
 function _feeds_node_autosync_retrieve_importer(FeedsSource $source, $log_transaction=FALSE) {
 	$source_importer_config = NULL;
