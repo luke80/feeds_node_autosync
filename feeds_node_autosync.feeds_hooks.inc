@@ -7,25 +7,25 @@
  *   The FeedsSource object of the hooked feed_source...
  */
 function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
-	$node_type = _feeds_node_autosync_retrieve_bundle($source, TRUE);
-	$node_configured_importer = "No importer assigned";
+	$source_bundle = _feeds_node_autosync_retrieve_bundle($source, TRUE);
+	$source_importer = _feeds_node_autosync_retrieve_importer($source, TRUE);
 	//	Load the config (perhaps we should standardize the variable name loaded for this?)
-	if($node_type != "Unknown node type")
+	if($source_bundle != "Unknown node type")
 		$fna = feeds_node_autosync_config($node_type,NULL,TRUE);
 	else
 		$fna = NULL;
-	if(is_object($fna) && $source->importer->getConfig() != $fna->config->importer_config && $fna->config->importer_config->name) {
-		watchdog('feeds_node_autosync',t("Auto-sync feed triggered for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source->importer->getConfig()['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
+	if(is_object($fna) && $source_importer != $fna->config->importer_config && $fna->config->importer_config->name) {
+		watchdog('feeds_node_autosync',t("Auto-sync feed triggered for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source_importer['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
 		//	Alert the user that autosync has been temporarily suspended due to "large batch" import.
-		drupal_set_message(t("%active_importer importing to %node_type which is configured to auto-feed from %configured_importer. Temporarily suspending auto-sync for this content type until this import completes.",array('%active_importer'=>$source->importer->getConfig()['name'],'%node_type'=>node_type_get_name($node_type),'%configured_importer'=>$fna->config->importer_config->name)));
+		drupal_set_message(t("%active_importer importing to %node_type which is configured to auto-feed from %configured_importer. Temporarily suspending auto-sync for this content type until this import completes.",array('%active_importer'=>$source_importer['name'],'%node_type'=>node_type_get_name($source_bundle),'%configured_importer'=>$fna->config->importer_config->name)));
 		if(!is_object($fna->config->active)) {
-			watchdog('feeds_node_autosync',t("Auto-sync content_type active setting undefined. Resetting from default. pageload:@page_load",array('@feed_source_name'=>$source->importer->getConfig()['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
+			watchdog('feeds_node_autosync',t("Auto-sync content_type active setting undefined. Resetting from default. pageload:@page_load",array('@feed_source_name'=>$source_importer['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
 			$fna->config->active = clone $fna->default_config->active;
 		}
 		else
 			$fna->config->active_preimport = clone $fna->config->active;	//	Save this to reset the values after the import completes.
 		$fna->config->active->value = -1;	//	-1 is a semi-reserved value for 'active' which indicates the temporary suspension
-		feeds_node_autosync_config($source->importer->getConfig()['content_type'],$fna);	//	Save the temporary suspension.
+		feeds_node_autosync_config($source_bundle, $fna);	//	Save the temporary suspension.
 	} else {
 		watchdog('feeds_node_autosync',t("Autosync feed started with without disabling any Auto-sync handlers."),NULL,WATCHDOG_DEBUG);
 	}
@@ -40,20 +40,21 @@ function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
  */
 function feeds_node_autosync_feeds_after_import( FeedsSource $source ) {
 	$node_type = _feeds_node_autosync_retrieve_bundle($source,TRUE);
+	$source_importer = _feeds_node_autosync_retrieve_importer($source, TRUE);
 	//	Load the config (perhaps we should standardize the variable name loaded for this?)
 	if($node_type != "Unknown node type")
 		$fna = feeds_node_autosync_config($node_type,NULL,TRUE);
 	else
 		$fna = NULL;
-	if(is_object($fna) && is_object($source->importer) && is_array($source->importer->getConfig())) {
-		if($source->importer->getConfig()['name'] != $fna->config->importer->value && $fna->config->active->value == -1) {
-			drupal_set_message(t("%active_importer import complete. Resetting 'active' parameter on %configured_importer to %active.",array('%active_importer'=>$source->importer->getConfig()['name'],'%configured_importer'=>$fna->config->importer->value,'%active'=>($fna->config->active_preimport->value==1)?"Active":(($fna->config->active_preimport->value==0)?"Inactive":"Still importing. This is an error. Please deactivate and re-activate this setting in the content type."))));
+	if(is_object($fna) && is_array($source_importer)) {
+		if($source_importer['name'] != $fna->config->importer->value && $fna->config->active->value == -1) {
+			drupal_set_message(t("%active_importer import complete. Resetting 'active' parameter on %configured_importer to %active.",array('%active_importer'=>$source_importer['name'],'%configured_importer'=>$fna->config->importer->value,'%active'=>($fna->config->active_preimport->value==1)?"Active":(($fna->config->active_preimport->value==0)?"Inactive":"Still importing. This is an error. Please deactivate and re-activate this setting in the content type."))));
 			$fna->config->active->value = $fna->config->active_preimport->value;
 			unset($fna->config->active_preimport);
-			feeds_node_autosync_config($source->importer->getConfig()['content_type'],$fna);
+			feeds_node_autosync_config($node_type,$fna);
 		}
 		unset($fna);
-		watchdog('feeds_node_autosync',t("Autosync feed completed for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source->importer->getConfig()['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
+		watchdog('feeds_node_autosync',t("Autosync feed completed for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source_importer['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
 	} else {
 		watchdog('feeds_node_autosync',t("Autosync feed completed with no source importer nor config with which to detect Feeds Node Auto-sync function."),NULL,WATCHDOG_DEBUG);
 	}
@@ -144,4 +145,18 @@ function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transacti
 		drupal_set_message("Unable to determine target bundle. Can't determine if Feeds Node Auto-sync needs to be suspended on this import.","warning");
 	}
 	return $node_type;
+}
+
+/**
+ * 	Implemented by above functions which need to retrieve an attached auto-sync content type from a feed by name
+ *
+ */
+function _feeds_node_autosync_retrieve_importer(FeedsSource $source,$log_transaction=FALSE) {
+	$source_importer_config = NULL;
+	if(is_object($source->importer) && is_array($source->importer->getConfig())) {
+		$source_importer_config = $source->importer->getConfig();
+		if($log_transaction)
+			watchdog('feeds_node_autosync',t("Auto-sync source importer known and retrieved. %importer_name",array("%importer_name"=>$source_importer_config->name)),NULL,WATCHDOG_DEBUG);
+	}
+	return $source_importer;
 }
