@@ -231,7 +231,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			if(strlen($form_datas['importers']['all'][$importer_name]['bundle']) == 0) {
 				$missing_nodes_error .= l(t('Click here to go import page for @importer (please don\'t forget to change this back to the content type when you\'re done)',array('@importer'=>$importer)),'import/'.$importer_name);
 			} else {
-				$missing_nodes_error .= l(t("To use the Feeds import form, first change it to use the standalone form by 'detaching' it from the content type. Click here to go to the form for @importer",array('@importer'=>$importer)),'admin/structure/feeds/'.$importer_name.'/settings');
+				$missing_nodes_error .= t(" This is confusing, but first you need to import with the standalone form. To use this import form, 'detach' it from the content type. ").l(t("Click here to go to the form for @importer",array('@importer'=>$importer)),'admin/structure/feeds/'.$importer_name.'/settings');
 			}
 		}
 		$form_datas['nids'] = db_select('node', 'n')
@@ -519,7 +519,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				'map_required_key' => 'target',
 				'map_required_value' => 'feeds_source',
 				'storage_key' => 'feed_source_mapped',
-				'fail_message' => t('<strong><em>feeds_source</em> must be mapped.</strong> This is a field added by the Feeds module.'),
+				'fail_message' => t('<strong><em>feeds_source</em> must be mapped.</strong> This is a field added by the Feeds module. It only becomes available if you have selected a content type attachment in ').l('the \'Basic settings\' form.',"admin/structure/feeds/".$importer_config['id']."/settings"),
 			),
 			/*'not_found' => array(
 			 'map_required_key' => 'never_there',
@@ -647,6 +647,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			$ret['valid'][$importer_config['id']] = t($importer_config['name']).((strlen($importer_config['description'])>0)?" ".t($importer_config['description']):"");
 		} else {
 			$ret['all'][$importer_config['id']]['fail_messages'][] = $fail_messages;
+			$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed mapping form.","admin/structure/feeds/".$importer_config['id']."/mapping");
 		}
 		unset($fail_messages);
 		unset($passed_requirements);
