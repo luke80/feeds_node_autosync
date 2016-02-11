@@ -293,7 +293,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			}
 			array_unshift($form_datas['config_problems'], t('<div class="fna-feedback-header">Validation errors</div>'));
 			$form['feeds_auto_sync']['fna_errors']  = array(
-					'#markup' => t('<section class="fna-feedback"><div>'.implode("</div><div>",$form_datas['config_problems']).'</div></section>'),
+					'#markup' => t('<section class="fna-feedback"><input type="checkbox" id="fna-show-help"><div>'.implode('</div><div>',$form_datas['config_problems']).'</div><label for="fna-show-help">help</label></section>'),
 			);
 			//	Since the form settings don't matter if they can't work, hide them.
 			return true;
