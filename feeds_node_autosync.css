@@ -56,16 +56,24 @@ keygen.feeds-node-autosync-disabled.feeds-node-autosync-adminaccess,
 #fna-show-help {
 	display:none;
 }
+
+#fna-show-help ~ div.fna-help {
+	max-height:0px;
+	transition: max-height 1s ease-out;
+}
+#fna-show-help:checked ~ div.fna-help {
+	max-height:512px;
+}	
 #fna-show-help ~ div > .fna-feedback-help {
-	line-height:0;
+	/*line-height:0;*/
 	/*font-size:0%;*/
-	transform: scale(.0);
+	transform: scale(0.0);
 	color:rgba(255,255,255,0.1);
-	transition: all 1s;
+	transition: color 1s ease-in-out,transform 0.75s ease-in;
 }
 
 #fna-show-help:checked ~ div > .fna-feedback-help {
-	line-height:1.6em;
+	/*line-height:1.6em;*/
 	transform: scale(1);
 	/*font-size:100%;*/
 	color:rgba(0,0,0,1);
