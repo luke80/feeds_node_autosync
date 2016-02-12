@@ -231,7 +231,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			if(strlen($form_datas['importers']['all'][$importer_name]['bundle']) == 0) {
 				$missing_nodes_error .= l(t('Click here to go import page for @importer (please don\'t forget to change this back to the content type when you\'re done)',array('@importer'=>$importer)),'import/'.$importer_name);
 			} else {
-				$missing_nodes_error .= t(" This is confusing, but first you need to import with the standalone form. To use this import form, 'detach' it from the content type. ").l(t("Click here to go to the form for @importer",array('@importer'=>$importer)),'admin/structure/feeds/'.$importer_name.'/settings');
+				$missing_nodes_error .= t(" This is confusing, and I'm worry about that. To get your feed data initialized the first time, it needs to be imported without an attached node with the standalone form. After successfully importing that way, import it once more after re-attaching it to your intended bundle. ").l(t("Click here to go to the form for @importer",array('@importer'=>$importer)),'admin/structure/feeds/'.$importer_name.'/settings');
 			}
 		}
 		$form_datas['nids'] = db_select('node', 'n')
