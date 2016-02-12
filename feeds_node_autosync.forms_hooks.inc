@@ -336,7 +336,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		);
 		//	If the user lacks appropriate permissions, show the field but don't allow changes
 		if(!user_access('fna bundle protect fields form')) {
-			if(!is_array($form['feeds_auto_sync']['fna_block_field_edits']['#attributes']))
+			if(!array_key_exists('#attributes',$form['feeds_auto_sync']['fna_block_field_edits']) || !is_array($form['feeds_auto_sync']['fna_block_field_edits']['#attributes']))
 				$form['feeds_auto_sync']['fna_block_field_edits']['#attributes'] = array();
 			$form['feeds_auto_sync']['fna_block_field_edits']['#attributes']['disabled'] = 'disabled';
 		}
