@@ -309,6 +309,11 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		if($c->config->active->value == 1) {
 			$form['feeds_auto_sync']['fna_active']['#attributes'] = array('checked'=>'checked');
 		}
+		if(!user_access('fna bundle protect fields form')) {
+			if(!array_key_exists("#attributes",$form['feeds_auto_sync']['fna_active']) || !is_array($form['feeds_auto_sync']['fna_active']['#attributes']))
+				$form['feeds_auto_sync']['fna_active']['#attributes'] = array();
+			$form['feeds_auto_sync']['fna_active']['#attributes']['disabled'] = 'disabled';
+		}
 		//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
 		$form['feeds_auto_sync']['fna_importer']  = array(
 				'#type' => 'select',
@@ -336,7 +341,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		);
 		//	If the user lacks appropriate permissions, show the field but don't allow changes
 		if(!user_access('fna bundle protect fields form')) {
-			if(!array_key_exists('#attributes',$form['feeds_auto_sync']['fna_block_field_edits']) || !is_array($form['feeds_auto_sync']['fna_block_field_edits']['#attributes']))
+			if(!array_key_exists("#attributes",$form['feeds_auto_sync']['fna_block_field_edits']) || !is_array($form['feeds_auto_sync']['fna_block_field_edits']['#attributes']))
 				$form['feeds_auto_sync']['fna_block_field_edits']['#attributes'] = array();
 			$form['feeds_auto_sync']['fna_block_field_edits']['#attributes']['disabled'] = 'disabled';
 		}
