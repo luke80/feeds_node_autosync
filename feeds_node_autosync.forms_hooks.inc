@@ -270,11 +270,11 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		unset($missing_nodes_error);
 		
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
-			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">You don\'t have an importer set up yet. To activate Auto-sync with Feeds, create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),-1) != "s")?"s":""))));
+			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">You don\'t have an importer set up yet. To activate Auto-sync with Feeds, create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),-1) != "s")?"s":""))).'<div>'.l('Click here to create a new Feeds importer.','admin/structure/feeds/create').'</div>');
 			$general_errors = TRUE;
 		} elseif(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
 			$general_errors = TRUE;
-			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">It appears that your <em>processor</em> is either missing or is not set up to connect to this content type with any imported columns. Additionally, you are also required to have at least one unique identifier mapped to this content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type))));
+			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">It appears that your <em>processor</em> hasn\'t been mapped yet. As you resolve this remember you are also required to have at least one unique column within the content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type))));
 		} else {	//	Second problem to identify. No valid importers!
 			if(count($form_datas['importers']['valid']) == 0) {
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>'));
