@@ -580,17 +580,17 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					'fail_message' => t('At least one <em>unique</em> field is required, otherwise it can\'t differentiate between items.'),
 			),*/
 			'unique_field' => array(
-					'map_required_key' => 'unique',
-					'map_required_value' => 1,
-					'map_required_field_key_not' => 'guid',
-					'storage_key' => 'processor_includes_unique_field',
-					'fail_message' => t('<strong>At least one <em>unique</em> field is required.</strong> Multiple feeds to the same content type will result in duplicate records without this. (The Feeds-created GUID field is insufficient.) ').l('To make some fields unique requires validation settings on the field within the content type.','admin/structure/types/manage/'.$bundle.'/fields'),
+				'map_required_key' => 'unique',
+				'map_required_value' => 1,
+				'map_required_field_key_not' => 'guid',
+				'storage_key' => 'processor_includes_unique_field',
+				'fail_message' => t('<strong>At least one <em>unique</em> field is required.</strong> Multiple feeds to the same content type will result in duplicate records without this. (The Feeds-created GUID field is insufficient.) ').l('To make some fields unique requires validation settings on the field within the content type.','admin/structure/types/manage/'.$bundle.'/fields'),
 			),
 			'url' => array(
-					'map_required_key' => 'target',
-					'map_required_value' => 'url',
-					'storage_key' => 'feed_url_mapped',
-					'fail_message' => t('<strong><em>URL</em> must be mapped.</strong> The Feeds module adds this field to the bundle.'),
+				'map_required_key' => 'target',
+				'map_required_value' => 'url',
+				'storage_key' => 'feed_url_mapped',
+				'fail_message' => t('<strong><em>URL</em> must be mapped.</strong> The Feeds module adds this field to the bundle.'),
 			),
 			'feed_source' => array(
 				'map_required_key' => 'target',
@@ -658,7 +658,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			} elseif($data['ignore_match'] == $map['target']) {
 				$ignore = TRUE;
 			} elseif (
-					//	Fairly complex widet-type ignore mode
+					//	Fairly complex widget ignore mode
 					$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
 					array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
 					$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
@@ -699,13 +699,22 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 		//	Now - check the required maps list!
 		foreach($required_maps as $required_fieldname => $requirement_parameters) {
 			//	Complicated validation match criteria!
-			if(array_key_exists($requirement_parameters['map_required_key'], $map)) {	//	if this is the required key
-				if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {	//	and is the required value
-					if(!array_key_exists('map_required_field_key_not',$requirement_parameters)) {
-						//	There isn't a key that needs to be checked (to make sure it's not present)
-						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
-					} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
-						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
+			if( array_key_exists($requirement_parameters['map_required_key'], $map)	//	if this is the required key
+					&& $map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']	//	and is the required value
+			) {
+				if(!array_key_exists('map_required_field_key_not',$requirement_parameters)) {
+					//	There isn't a key that needs to be checked (to make sure it's not present)
+					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
+				} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
+					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
+				} else {
+					$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
+				}
+			} elseif( array_key_exists('map_required_field_key_not',$requirement_parameters) ) {
+				if($required_fieldname != $requirement_parameters['map_required_field_key_not'] && array_key_exists($requirement_parameters['map_required_key'],$map) ) {
+					if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {
+						//	Everything here looks fine
+						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;
 					} else {
 						$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 					}
@@ -718,7 +727,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	$fail_messages = "";
 	//	Check each required map and attach the fail message if it fails validation.
 	foreach($required_maps as $required_fieldname => $requirement_parameters) {
-		if(!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']])) {
+		if(!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']]) || $ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] != TRUE) {
 			$passed_requirements = FALSE;
 			$fail_messages .= "<div>".$requirement_parameters['fail_message']."</div>";
 		}
