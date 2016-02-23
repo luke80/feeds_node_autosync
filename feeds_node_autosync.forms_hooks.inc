@@ -232,7 +232,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			}
 		}
 		//	Verify successful import of nodes with 'FEED_URL' set in db.
-		$missing_nodes_error = t('Before connecting auto-update to your %bundle, your content usually have been created by a feed. Your Feeds importer needs to be run at least once to establish this connection.',array('%bundle'=>node_type_get_name($form['#node_type']->type)));		//	<div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>
+		$missing_nodes_error = t('Before connecting auto-update to your %bundle, your content usually would be created (or updated) by a feed. Your Feeds importer needs to be run at least once to establish this connection.',array('%bundle'=>node_type_get_name($form['#node_type']->type)));		//	<div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>
 		foreach($form_datas['importers']['valid'] as $importer_name=>$importer) {
 			//	Provide an interface option to "configure" one of the available importers with the required settings.
 			//	Change this mechanism to be cleaner!!!
@@ -270,7 +270,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		unset($missing_nodes_error);
 		
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
-			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">You don\'t even have an importer set up yet! You\'ll have to create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),strlen(node_type_get_name($form['#node_type']->type)-2)) != "s")?"s":""))));
+			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">You don\'t have an importer set up yet. To activate Auto-sync with Feeds, create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),-1) != "s")?"s":""))));
 			$general_errors = TRUE;
 		} elseif(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
 			$general_errors = TRUE;
@@ -288,7 +288,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 						_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],'<div class="fna-subhead fna-importer-link">'.l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping').'</div>');
 					}
 					foreach($unvalidated_importer['fail_messages'] as $fail_message) {
-						_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],$fail_message);
+						_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div>'.$fail_message.'</div>'));
 					}
 				}
 				if(!$unvalidated_importer['mappings_errors']) {
@@ -306,7 +306,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 						'#description' => t('Select this and submit the form to change all the settings on the selected importer (as needed) and run an import to populate your %bundle nodes.',array('%bundle'=>node_type_get_name($form['#node_type']->type))),
 						'#required' => FALSE,
 						'#options'	=>	$override_options,
-						'#attributes'=>	array('onchange'=>"(function(el){var urls=".json_encode($feed_urls).";console.log(el);document.querySelector('input[data-feedurl=selection-anchor-for-feedurl]').setAttribute('value',urls[el.getAttribute('value')]);console.log(document.querySelector('input[data-feedurl=selection-anchor-for-feedurl]'));})(this)"),
+						'#attributes'=>	array('onchange'=>"(function(el){var urls=".json_encode($feed_urls).";document.querySelector('input[data-feedurl=selection-anchor-for-feedurl]').setAttribute('value',(urls[el.getAttribute('value')]!=null)?urls[el.getAttribute('value')]:'');})(this)"),
 					),
 					"fna_override_importer"
 				);
@@ -646,95 +646,93 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 		$ret['all'][$importer_config['id']]['settings_errors'] = TRUE;
 	}
 	$ret['all'][$importer_config['id']]['mappings_errors'] = FALSE;
-	if(count($ret['all'][$importer_config['id']]['fail_messages']) == 0) {
-		//	Here is built the array of fields for locking
-		//	Also checked here is the existence of a "FEED_URL" on an item level. If the items don't have a "FEED_URL" there is no capacity to auto-sync its data.
-		foreach($importer_config['processor']['config']['mappings'] as $map) {
-			$field_name = substr($map['target'],0,((strpos($map['target'],":")>-1)?strpos($map['target'],":"):strlen($map['target'])));
-			$importer_field = field_info_instance('node',$field_name,$bundle);
-			$ignore = FALSE;
-			foreach($ignored_maps as $title=>$data) {
-				if($importer_field && array_key_exists($data['ignore_mode'],$importer_field) && $data['ignore_mode'] != "widget") {
-					$ignore = TRUE;
-				} elseif($data['ignore_match'] == $map['target']) {
-					$ignore = TRUE;
-				} elseif (
-						//	Fairly complex widet-type ignore mode
-						$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
-						array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
-						$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
-				) {
-					$ignore = TRUE;
-				} else {
-					//	not ignorable
-				}
-				if($ignore) {
-					if($importer_field)
-						$label = $importer_field['label'];
-					else
-						$label = $map['target'];
-					$ret['all'][$importer_config['id']]['fields_messages'][] = t($data['user_message'],array('%field_name'=>$label));
-					$ret['mapped_fields_messages'][$title] = t($data['user_message'],array('%field_name'=>$label));
-				}
+	//	Here is built the array of fields for locking
+	//	Also checked here is the existence of a "FEED_URL" on an item level. If the items don't have a "FEED_URL" there is no capacity to auto-sync its data.
+	foreach($importer_config['processor']['config']['mappings'] as $map) {
+		$field_name = substr($map['target'],0,((strpos($map['target'],":")>-1)?strpos($map['target'],":"):strlen($map['target'])));
+		$importer_field = field_info_instance('node',$field_name,$bundle);
+		$ignore = FALSE;
+		foreach($ignored_maps as $title=>$data) {
+			if($importer_field && array_key_exists($data['ignore_mode'],$importer_field) && $data['ignore_mode'] != "widget") {
+				$ignore = TRUE;
+			} elseif($data['ignore_match'] == $map['target']) {
+				$ignore = TRUE;
+			} elseif (
+					//	Fairly complex widet-type ignore mode
+					$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
+					array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
+					$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
+			) {
+				$ignore = TRUE;
+			} else {
+				//	not ignorable
 			}
-			if($importer_field && !$ignore && strpos($map['target'],":") == -1) {	//	This verifies that the mapped field is a field in the content type
-				$ret['all'][$importer_config['id']]['fields'][$importer_field['field_name']] = t($importer_field['label']);
-				$ret['mapped_fields'][$importer_field['field_name']] = t($importer_field['label']);
-			} else if($map['target'] == 'title' && !$ignore) {
-				//	Because the fields API doesn't contain the title the bundle doesn't properly show "title" names...
-				$types = node_type_get_types();
-				if (isset($types[$bundle]) && $types[$bundle]->has_title) {
-					$ret['all'][$importer_config['id']]['fields']['title'] = t($types[$bundle]->title_label);
-					$ret['mapped_fields']['title'] = t($types[$bundle]->title_label);
-				} else {
-					//	This bundle doesn't have a title... so it shouldn't have a map to it.
-				}
-			} elseif(!$ignore) {
-				$label = (($importer_field) ? t($importer_field['label']): $map['target']);
-				if(strpos($map['target'],":") > -1)
-					$label .= substr($map['target'],strpos($map['target'],":"));
-				$ret['all'][$importer_config['id']]['fields'][$map['target']] = $label;
-				$ret['mapped_fields'][$map['target']] = $label;
-				unset($label);
+			if($ignore) {
+				if($importer_field)
+					$label = $importer_field['label'];
+				else
+					$label = $map['target'];
+				$ret['all'][$importer_config['id']]['fields_messages'][] = t($data['user_message'],array('%field_name'=>$label));
+				$ret['mapped_fields_messages'][$title] = t($data['user_message'],array('%field_name'=>$label));
 			}
-			//	Now - check the required maps list!
-			foreach($required_maps as $required_fieldname => $requirement_parameters) {
-				//	Complicated validation match criteria!
-				if(array_key_exists($requirement_parameters['map_required_key'], $map)) {	//	if this is the required key
-					if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {	//	and is the required value
-						if(!array_key_exists('map_required_field_key_not',$requirement_parameters)) {
-							//	There isn't a key that needs to be checked (to make sure it's not present)
-							$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
-						} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
-							$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
-						} else {
-							$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
-						}
+		}
+		if($importer_field && !$ignore && strpos($map['target'],":") == -1) {	//	This verifies that the mapped field is a field in the content type
+			$ret['all'][$importer_config['id']]['fields'][$importer_field['field_name']] = t($importer_field['label']);
+			$ret['mapped_fields'][$importer_field['field_name']] = t($importer_field['label']);
+		} else if($map['target'] == 'title' && !$ignore) {
+			//	Because the fields API doesn't contain the title the bundle doesn't properly show "title" names...
+			$types = node_type_get_types();
+			if (isset($types[$bundle]) && $types[$bundle]->has_title) {
+				$ret['all'][$importer_config['id']]['fields']['title'] = t($types[$bundle]->title_label);
+				$ret['mapped_fields']['title'] = t($types[$bundle]->title_label);
+			} else {
+				//	This bundle doesn't have a title... so it shouldn't have a map to it.
+			}
+		} elseif(!$ignore) {
+			$label = (($importer_field) ? t($importer_field['label']): $map['target']);
+			if(strpos($map['target'],":") > -1)
+				$label .= substr($map['target'],strpos($map['target'],":"));
+			$ret['all'][$importer_config['id']]['fields'][$map['target']] = $label;
+			$ret['mapped_fields'][$map['target']] = $label;
+			unset($label);
+		}
+		//	Now - check the required maps list!
+		foreach($required_maps as $required_fieldname => $requirement_parameters) {
+			//	Complicated validation match criteria!
+			if(array_key_exists($requirement_parameters['map_required_key'], $map)) {	//	if this is the required key
+				if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {	//	and is the required value
+					if(!array_key_exists('map_required_field_key_not',$requirement_parameters)) {
+						//	There isn't a key that needs to be checked (to make sure it's not present)
+						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
+					} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
+						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
+					} else {
+						$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 					}
 				}
 			}
-			unset($importer_field);	//	Since this is no longer needed, why not delete it?
 		}
-		$passed_requirements = TRUE;
-		$fail_messages = "";
-		//	Check each required map and attach the fail message if it fails validation.
-		foreach($required_maps as $required_fieldname => $requirement_parameters) {
-			if(!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']])) {
-				$passed_requirements = FALSE;
-				$fail_messages .= "<div>".$requirement_parameters['fail_message']."</div>";
-			}
-		}
-		//	If this importer had a mapped "FEED_URL" and passed all validation, then add it to the list of form_importers!
-		if($passed_requirements) {
-			$ret['valid'][$importer_config['id']] = t($importer_config['name']).((strlen($importer_config['description'])>0)?" ".t($importer_config['description']):"");
-		} else {
-			$ret['all'][$importer_config['id']]['fail_messages'][] = $fail_messages;
-			$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed mapping form.","admin/structure/feeds/".$importer_config['id']."/mapping");
-			$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
-		}
-		unset($fail_messages);
-		unset($passed_requirements);
+		unset($importer_field);	//	Since this is no longer needed, why not delete it?
 	}
+	$passed_requirements = TRUE;
+	$fail_messages = "";
+	//	Check each required map and attach the fail message if it fails validation.
+	foreach($required_maps as $required_fieldname => $requirement_parameters) {
+		if(!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']])) {
+			$passed_requirements = FALSE;
+			$fail_messages .= "<div>".$requirement_parameters['fail_message']."</div>";
+		}
+	}
+	//	If this importer had a mapped "FEED_URL" and passed all validation, then add it to the list of form_importers!
+	if($passed_requirements) {
+		$ret['valid'][$importer_config['id']] = t($importer_config['name']).((strlen($importer_config['description'])>0)?" ".t($importer_config['description']):"");
+	} else {
+		$ret['all'][$importer_config['id']]['fail_messages'][] = $fail_messages;
+		$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed mapping form.","admin/structure/feeds/".$importer_config['id']."/mapping");
+		$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
+	}
+	unset($fail_messages);
+	unset($passed_requirements);
 	unset($required_maps);	//	Since this is no longer needed, why not delete it?
 	unset($importer_config);	//	Since this is no longer needed, why not delete it?
 	return $ret;
