@@ -843,7 +843,6 @@ function _feeds_node_autosync_force_importer_settings($importer_name,$bundle) {
 	$feed_importer->setConfig($feed_config);
 	unset($feed_config);
 	$feed_importer->save();
-	unset($feed_importer);
 	
 	$feed_processor = $feed_importer->processor;
 	$feed_config = $feed_processor->getConfig();
@@ -853,6 +852,7 @@ function _feeds_node_autosync_force_importer_settings($importer_name,$bundle) {
 	$feed_importer->processor->setConfig($feed_config);
 	unset($feed_config);
 	$feed_processor->save();
+	unset($feed_importer);
 	unset($feed_processor);
 }
 
