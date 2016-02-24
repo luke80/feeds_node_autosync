@@ -124,12 +124,18 @@ function feeds_node_autosync_feeds_presave(FeedsSource $source, $entity, $item) 
  */
 function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transaction=FALSE) {
 	$node_type = "Unknown node type";
-	if(is_object($source->importer) && is_array($source->importer->getConfig()) && $source->importer->getConfig()['content_type']) {
-		$node_type = $source->importer->getConfig()['content_type'];
+	if(is_object($source->importer) && is_array($source->importer->getConfig())) {
+		$source_config = $source->importer->getConfig();
+	}
+	if(is_object($source->importer->processor) && $source->importer->processor->getConfig()) {
+		$source_processor_config = $source->importer->processor->getConfig();
+	}
+	if($source_config['content_type']) {
+		$node_type = $source_config['content_type'];
 		if($log_transaction)
 			watchdog('feeds_node_autosync',t("Auto-sync content type known and retrieved. %node_type",array("%node_type"=>$node_type)),NULL,WATCHDOG_DEBUG);
-	} elseif(is_object($source->importer->processor) && $source->importer->processor->getConfig()['bundle']) {
-		$processor_config = $source->importer->processor->getConfig();
+	} elseif(is_object($source->importer->processor) && $source_processor_config['bundle']) {
+		$processor_config = $source_processor_config;
 		if(is_array($processor_config)) {
 			$node_type = $processor_config['bundle'];
 			if($log_transaction)
@@ -146,6 +152,8 @@ function _feeds_node_autosync_retrieve_bundle(FeedsSource $source,$log_transacti
 			watchdog('feeds_node_autosync',t("Auto-sync feed started with a processor having no known content type."),NULL,WATCHDOG_DEBUG);
 		drupal_set_message("Unable to determine target bundle. Can't determine if Feeds Node Auto-sync needs to be suspended on this import.","warning");
 	}
+	unset($source_config);
+	unset($source_processor_config);
 	return $node_type;
 }
 

@@ -53,7 +53,60 @@ function feeds_node_autosync_permission() {
 					'title' => t('Bypass uneditable field setting'),
 					'description' => t('Configuration allows bundled fields to be uneditable with the form. This permission bypasses that.'),
 			),
-				
+			'fna access global configuration form' => array(
+					'title' => t('Access Feeds Auto-sync global configuration form'),
+					'description' => t('Allowed to access Feeds Auto-sync global configuration form.'),
+			),
+			
 	);
 }
+
+/**
+ * Implements hook_menu()
+ *
+ * The menu addition to make finding the admin form easier.
+ */
+function feeds_node_autosync_menu() {
+	$items = array();
+
+	$items['admin/config/user-interface/feeds_node_autosync'] = array(
+			'title' => 'Feeds Auto-sync global configuration form',
+			'description' => 'Toggleable settings for all Auto-sync configurations.',
+			'page callback' => 'drupal_get_form',
+			'page arguments' => array('feeds_node_autosync_admin'),
+			'access arguments' => array('fna access global configuration form'),
+			'type' => MENU_NORMAL_ITEM,
+	);
+
+	return $items;
+}
+
+/**
+ * Implemented by the above hook_menu 
+ *
+ * The administration configuration form.
+ */
+function feeds_node_autosync_admin() {
+	$form = array();
+
+	$form['feeds_node_autosync_validator_active'] = array(
+			'#type' => 'checkbox',
+			'#title' => t('Run validator'),
+			'#description' => t("Unchecking this will turn off all the built-in safety and validation logic meant to help configuring Feeds Auto-sync. It is <em>not</em> recommended to uncheck this setting."),
+			'#default_value' => TRUE,
+	);
+
+	return system_settings_form($form);
+}
+/**
+ * Implements hook_admin_validate()
+ *
+ * The form validator for the above hook_admin
+ */
+ function feeds_node_autosync_admin_validate($form, &$form_state) {
+ 	if(!user_access('fna access global configuration form')) {
+ 		form_set_error('feeds_node_autosync_validator_active', t("Lack sufficient priveleges to change this."));
+ 	}
+}
+
 

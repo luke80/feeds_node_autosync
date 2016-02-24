@@ -37,7 +37,8 @@ function feeds_node_autosync_form_alter( &$form, &$form_state, $form_id ) {
 		$fields = field_info_instances('node',$form['#node']->type);
 		$remove_items_block_edits = array();
 		foreach($block_edits as $field_name) {	//	loop over the fields to block edits upon
-			$fii = field_info_instance('node', $field_name, $form['#node']->type)['label'];	//	additional fields are retrievable with this function. However, it does miss some things.
+			$fii = field_info_instance('node', $field_name, $form['#node']->type);
+			$fii = $fii['label'];	//	additional fields are retrievable with this function. However, it does miss some things.
 			if($fii) {
 				$disable_field_names[] = $fii;
 			} elseif($field_name == 'title') {	//	Disabling the titles is still buggy. Not sure why yet.
@@ -213,11 +214,13 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				'importer_mapped_fields'	=> array(),	//	This array is populated with the mapped fields that are configured, and might need to be disabled to prevent modification to fields intended to be driven only by the feed.
 				'importer_mapped_fields_messages'	=> array(),	//	This array is populated with messages from mapped fields that are configured
 		);
-		$general_errors = FALSE;
+		$general_errors = FALSE;	//	Start with the hope that there are no general errors (but there might be later on)
+		//	Output a wrapper for the errors (there is a corresponding "close" for this wrapper later on)
 		$form['feeds_auto_sync']['fna_error_section_begin']  = array(
 			'#markup' => '<section class="fna-feedback"><div>',
 		);
 		if($form['#node_type']->module != "" && $form['#node_type']->module != "node") {
+			//	First general error! The type needs to be "node"
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t("Sorry, the type needs to be 'node', not %module_name.",array('%module_name',$form['#node_type']->module)));
 			$general_errors = TRUE;
 		} else {
@@ -235,13 +238,14 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		$missing_nodes_error = t('Before connecting auto-update to your %bundle, your content usually would be created (or updated) by a feed. Your Feeds importer needs to be run at least once to establish this connection.',array('%bundle'=>node_type_get_name($form['#node_type']->type)));		//	<div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>
 		foreach($form_datas['importers']['valid'] as $importer_name=>$importer) {
 			//	Provide an interface option to "configure" one of the available importers with the required settings.
-			//	Change this mechanism to be cleaner!!!
+			//	These instructions are slightly deprecated now that the "override" form is available.
 			if(strlen($form_datas['importers']['all'][$importer_name]['bundle']) == 0) {
 				$missing_nodes_error .= " ".l(t('Click here to go import page for @importer.',array('@importer'=>$importer)),'import/'.$importer_name).t(" (Please don't forget to change this back to the content type when you're done.)");
 			} else {
 				$missing_nodes_error .= t(" This is confusing, and I'm worry about that. To get your feed data initialized the first time, it needs to be imported without an attached node with the standalone form. After successfully importing that way, import it once more after re-attaching it to your intended bundle. ").l(t("Click here to go to the form for @importer",array('@importer'=>$importer)),'admin/structure/feeds/'.$importer_name.'/settings');
 			}
 		}
+		//	Collect node ids to detect if there are feeds_source rows...
 		$form_datas['nids'] = db_select('node', 'n')
 			->fields('n', array('nid'))
 			->fields('n', array('type'))
@@ -262,6 +266,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],$missing_nodes_error);
 			}
 		} else if(count($form_datas['nids']) == 0) {
+			//	No nodes means no import!
 			$general_errors = TRUE;
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],"<div>".t("<strong>No %content_type nodes have been created.</strong> ",array("%content_type"=>node_type_get_name($form['#node_type']->type))).$missing_nodes_error."</div>");
 		}
@@ -272,17 +277,19 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		if(count($form_datas['importers']['all']) == 0) {	//	First problem to identify. No importers!
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">You don\'t have an importer set up yet. To activate Auto-sync with Feeds, create an importer for %content_type first.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type).((substr(node_type_get_name($form['#node_type']->type),-1) != "s")?"s":""))).'<div>'.l('Click here to create a new Feeds importer.','admin/structure/feeds/create').'</div>');
 			$general_errors = TRUE;
-		} elseif(count($form_datas['importer_mapped_fields']) == 0) {	//	Third problem to identify. No fields mapped to update in this content type.
+		} elseif(count($form_datas['importer_mapped_fields']) == 0) {	//	Second problem to identify. No fields mapped to update in this content type.
 			$general_errors = TRUE;
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">It appears that your <em>processor</em> hasn\'t been mapped yet. As you resolve this remember you are also required to have at least one unique column within the content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type))));
-		} else {	//	Second problem to identify. No valid importers!
-			if(count($form_datas['importers']['valid']) == 0) {
+		} else {
+			if(count($form_datas['importers']['valid']) == 0) {	//	Third problem to identify. No valid importers!
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>'));
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all']))));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			}
+			//	These arrays are used to produce the override form
 			$override_options = array();
 			$feed_urls = array();
 			foreach($form_datas['importers']['all'] as $key=>$unvalidated_importer) {
+				//	First output the help feedback error text stuff.
 				if(array_key_exists('fail_messages', $unvalidated_importer)) {
 					if(count($form_datas['importers']['valid']) == 0) {
 						_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],'<div class="fna-subhead fna-importer-link">'.l($unvalidated_importer['name'],'admin/structure/feeds/'.$key.'/mapping').'</div>');
@@ -291,12 +298,14 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 						_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div>'.$fail_message.'</div>'));
 					}
 				}
+				//	If there are no mappings errors, then we can override the settings and automate the initial import!
 				if(!$unvalidated_importer['mappings_errors']) {
 					//	There are no mapping errors, settings can be overridden with validation handler!
 					$override_options[$key] = $unvalidated_importer['name'];
 					$feed_urls[$key] = $unvalidated_importer['url'];
 				}
 			}
+			//	If there are overridable importers, then output the options and UI here!
 			if(count($override_options) > 0 && count($form_datas['config_problems']) > 0) {
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<br/><br/><div class="fna-subhead">Here\'s some help, if you want it:</div>'));
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],"Automatically correct errors and run an initial import with one of these importers:",
@@ -322,9 +331,11 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 					"fna_override_url"
 				);
 			} elseif(count($form_datas['config_problems']) > 0) {
+				//	Because the override is so helpful (potentially) we should placehold it and encourage the user to know about it and use it when available!
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<br/><br/><div class="fna-subhead">If you correct your mapping-related errors, there is some automatic help available to run your initial import. Fix those mapping errors and come back here to take advantage of it.</div>'));
 			}
 		}
+		//	Close the wrapper created above
 		$form['feeds_auto_sync']['fna_error_section_end']  = array(
 			'#markup' => '</div></section>',
 		);
@@ -333,6 +344,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		*/
 		//	If there are errors to display, display them.
 		if(count($form_datas['config_problems']) != 0) {
+			//	This help text is very "version 1" and should probably be edited to be clearer and shorter. For now, though, it's probably fine.
 			$help_elements = array();
 			$help_elements[] =	t('<div class="fna-feedback-header fna-feedback-help">Here\'s some help</div><p class="fna-feedback-help">To auto-sync your %content_type nodes, there must be a Feed set up which the auto-sync can use. There are a number of required mappings (columns, records, or other from your remote data which are imported into defined locations inside your %content_type nodes). Displayed above are specific errors generated because of a problem or problems with your configured Feeds.</p>',array('%content_type'=>node_type_get_name($form['#node_type']->type)));
 			$help_elements[] =	t('<p class="fna-feedback-help">It is recommended that you set up two separate Feeds importers with the following purposes:</p>');
@@ -364,7 +376,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				$form['feeds_auto_sync']['fna_active']['#attributes'] = array();
 			$form['feeds_auto_sync']['fna_active']['#attributes']['disabled'] = 'disabled';
 		}
-		//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
+		//	Secondary control. Destination: parameters within `node_type`.`auto_sync_config`
 		$form['feeds_auto_sync']['fna_importer']  = array(
 				'#type' => 'select',
 				'#options' => $form_datas['importers']['valid'],
@@ -373,7 +385,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				'#default_value' =>	t($c->config->importer->value),
 		);
 
-		//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
+		//	Secondary control. Destination: parameter within `node_type`.`auto_sync_config`
 		$form['feeds_auto_sync']['fna_cooldown']  = array(
 				'#type' => 'select',
 				'#options' => drupal_map_assoc(array(5,10,15,20,25,30,45,60)),
@@ -381,7 +393,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 				'#description' => t('This setting has two purposes, first to defeat recursion (which is triggered when an auto-update modifys a node, causing it to re-update), second to make the sync resistant to causing an importer lock if two users edit the same node at the same (ish) time.'),
 				'#default_value' =>	$c->config->cooldown->value,
 		);
-		//	Secondary control. Destination: ctools-encoded parameter within `node_type`.`auto_sync_config`
+		//	Secondary control. Destination: parameter within `node_type`.`auto_sync_config`
 		$form['feeds_auto_sync']['fna_block_field_edits']  = array(
 				'#type' => 'checkboxes',
 				'#options' => $form_datas['importer_mapped_fields'],
@@ -562,18 +574,18 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	$ret['all'][$importer_config['id']]['id'] = $importer_config['id'];
 	$ret['all'][$importer_config['id']]['bundle'] = $importer_config['content_type'];
 	$url_query_data = db_select('feeds_source', 'fs')
-			->fields('fs', array('source'))
-			->condition('id', $importer_config['id'])
-			->range(0,1)		//	But only give me the one...
-			->execute()
-			->fetchAssoc()
+		->fields('fs', array('source'))
+		->condition('id', $importer_config['id'])
+		->range(0,1)		//	But only give me the one...
+		->execute()
+		->fetchAssoc()
 		;
 	$ret['all'][$importer_config['id']]['url'] = $url_query_data['source'];
 	unset($url_query_data); 
 	
 	//	This structure is used to define the criteria the mappings will be either validated or invalidated against.
 	$required_maps = array(
-			/*'unique' => array(
+			/*'unique' => array(	//	removed because why require this (it's not strictly necessary)
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
 					'storage_key' => 'processor_includes_unique',
@@ -598,7 +610,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				'storage_key' => 'feed_source_mapped',
 				'fail_message' => t('<strong><em>feeds_source</em> must be mapped.</strong> This is a field added by the Feeds module. It only becomes available if you have selected a content type attachment in ').l('the \'Basic settings\' form.',"admin/structure/feeds/".$importer_config['id']."/settings"),
 			),
-			/*'not_found' => array(
+			/*'not_found' => array(	//	This is an example, don't uncomment it please
 			 'map_required_key' => 'never_there',
 			 'map_required_value' => 'not_set',
 			 'storage_key' => 'failtest',
@@ -658,16 +670,17 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			} elseif($data['ignore_match'] == $map['target']) {
 				$ignore = TRUE;
 			} elseif (
-					//	Fairly complex widget ignore mode
-					$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
-					array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
-					$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
+				//	Fairly complex widget ignore mode
+				$data['ignore_mode'] == 'widget' && is_array($importer_field) && array_key_exists("widget",$importer_field) && is_array($importer_field['widget']) &&
+				array_key_exists($data['ignore_match']['key_to_match'],$importer_field['widget']) &&
+				$importer_field['widget'][$data['ignore_match']['key_to_match']] == $data['ignore_match']['value_to_match']
 			) {
 				$ignore = TRUE;
 			} else {
 				//	not ignorable
 			}
 			if($ignore) {
+				//	Give the user an indication of what is ignored and why... stored in the original ignore structure
 				if($importer_field)
 					$label = $importer_field['label'];
 				else
@@ -689,6 +702,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				//	This bundle doesn't have a title... so it shouldn't have a map to it.
 			}
 		} elseif(!$ignore) {
+			//	If it's not ignored and isn't the title...
 			$label = (($importer_field) ? t($importer_field['label']): $map['target']);
 			if(strpos($map['target'],":") > -1)
 				$label .= substr($map['target'],strpos($map['target'],":"));
@@ -722,6 +736,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			}
 		}
 		unset($importer_field);	//	Since this is no longer needed, why not delete it?
+		unset($ignore);
 	}
 	$passed_requirements = TRUE;
 	$fail_messages = "";
@@ -824,6 +839,7 @@ function _feeds_node_autosync_force_importer_settings($importer_name,$bundle) {
 	$feed_importer->setConfig($feed_config);
 	unset($feed_config);
 	$feed_importer->save();
+	unset($feed_importer);
 	
 	$feed_processor = $feed_importer->processor;
 	$feed_config = $feed_processor->getConfig();
@@ -833,6 +849,7 @@ function _feeds_node_autosync_force_importer_settings($importer_name,$bundle) {
 	$feed_importer->processor->setConfig($feed_config);
 	unset($feed_config);
 	$feed_processor->save();
+	unset($feed_processor);
 }
 
 /*
