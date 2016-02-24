@@ -281,7 +281,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			$general_errors = TRUE;
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">It appears that your <em>processor</em> hasn\'t been mapped yet. As you resolve this remember you are also required to have at least one unique column within the content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type))));
 		} else {
-			if(count($form_datas['importers']['valid']) == 0 || TRUE) {	//	Third problem to identify. No valid importers!
+			if(count($form_datas['importers']['valid']) == 0) {	//	Third problem to identify. No valid importers!
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>'));
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all']))));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			}
@@ -564,8 +564,8 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	//	Check and enforce that the node type (bundle) matches the current, and that the feed is set to 'update existing nodes'.
 	//	Also required is at least one field processed as a unique identifier.
 	$ret['all'][$importer_config['id']] = array();
-	$ret['all'][$importer_config['id']]['FEED_URL_mapped'] = FALSE;
-	$ret['all'][$importer_config['id']]['processor_includes_unique_field'] = FALSE;
+	$ret['all'][$importer_config['id']]['mapped_FEED_URL'] = FALSE;
+	$ret['all'][$importer_config['id']]['mapped_processor_includes_unique_field'] = FALSE;
 	$ret['all'][$importer_config['id']]['fields'] = array();
 	$ret['all'][$importer_config['id']]['fields_messages'] = array();
 	$ret['all'][$importer_config['id']]['fail_messages'] = array();
@@ -588,26 +588,26 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			/*'unique' => array(	//	removed because why require this (it's not strictly necessary)
 					'map_required_key' => 'unique',
 					'map_required_value' => 1,
-					'storage_key' => 'processor_includes_unique',
+					'storage_key' => 'mapped_processor_includes_unique',
 					'fail_message' => t('At least one <em>unique</em> field is required, otherwise it can\'t differentiate between items.'),
 			),*/
 			'unique_field' => array(
 				'map_required_key' => 'unique',
 				'map_required_value' => 1,
 				'map_required_field_key_not' => 'guid',
-				'storage_key' => 'processor_includes_unique_field',
+				'storage_key' => 'mapped_processor_includes_unique_field',
 				'fail_message' => t('<strong>At least one <em>unique</em> field is required.</strong> Multiple feeds to the same content type will result in duplicate records without this. (The Feeds-created GUID field is insufficient.) ').l('To make some fields unique requires validation settings on the field within the content type.','admin/structure/types/manage/'.$bundle.'/fields'),
 			),
 			'url' => array(
 				'map_required_key' => 'target',
 				'map_required_value' => 'url',
-				'storage_key' => 'feed_url_mapped',
+				'storage_key' => 'mapped_FEED_URL',
 				'fail_message' => t('<strong><em>URL</em> must be mapped.</strong> The Feeds module adds this field to the bundle.'),
 			),
 			'feed_source' => array(
 				'map_required_key' => 'target',
 				'map_required_value' => 'feeds_source',
-				'storage_key' => 'feed_source_mapped',
+				'storage_key' => 'mapped_feed_source',
 				'fail_message' => t('<strong><em>feeds_source</em> must be mapped.</strong> This is a field added by the Feeds module. It only becomes available if you have selected a content type attachment in ').l('the \'Basic settings\' form.',"admin/structure/feeds/".$importer_config['id']."/settings"),
 			),
 			/*'not_found' => array(	//	This is an example, don't uncomment it please
@@ -722,7 +722,6 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
 					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
 				} else {
-					$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
 					$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 				}
 			} elseif( array_key_exists('map_required_field_key_not',$requirement_parameters) ) {
@@ -731,7 +730,6 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 						//	Everything here looks fine
 						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;
 					} else {
-						$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
 						$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 					}
 				}
