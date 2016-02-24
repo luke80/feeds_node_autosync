@@ -775,11 +775,15 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
  *	Optional parameter to allow for more sophisticated help-style inputs.
  */
 function _feeds_node_autosync_error_feedback(&$form,&$errors,$error_text,$form_input=array('#markup' => "Error; No text provided"),$form_key="default_key") {
-	if(array_key_exists("#markup",$form_input) && $form_input['#markup'] == "Error; No text provided")
-		$form_input['#markup'] = $error_text;
-	// Other stuff?
-	$form['feeds_auto_sync'][($form_key=="default_key")?'fna_errors_'.count($form['feeds_auto_sync']):$form_key] = $form_input;
-	array_push($errors,$form_input);
+	$fna_validation_on = variable_get('feeds_node_autosync_validator_active', TRUE);
+	if($fna_validation_on) {
+		if(array_key_exists("#markup",$form_input) && $form_input['#markup'] == "Error; No text provided")
+			$form_input['#markup'] = $error_text;
+		// Other stuff?
+		$form['feeds_auto_sync'][($form_key=="default_key")?'fna_errors_'.count($form['feeds_auto_sync']):$form_key] = $form_input;
+		array_push($errors,$form_input);
+	}
+	unset($fna_validation_on);
 }
 /*
  * Implemented by the above validation handler
