@@ -281,7 +281,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 			$general_errors = TRUE;
 			_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">It appears that your <em>processor</em> hasn\'t been mapped yet. As you resolve this remember you are also required to have at least one unique column within the content type %content_type, and the processor set to <em>update existing nodes</em>.',array('%content_type'=>node_type_get_name($form['#node_type']->type))));
 		} else {
-			if(count($form_datas['importers']['valid']) == 0) {	//	Third problem to identify. No valid importers!
+			if(count($form_datas['importers']['valid']) == 0 || TRUE) {	//	Third problem to identify. No valid importers!
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<div class="fna-feedback-header fna-subhead">Feed-specific validation errors</div>'));
 				_feeds_node_autosync_error_feedback($form,$form_datas['config_problems'],t('<p class="error">Found %num_feeds available feed sources, but none passed validation.</p>',array('%num_feeds'=>count($form_datas['importers']['all']))));	//	<br/>Your configured feed needs to have a <em>feed_source</em> set. You do this by setting one of the import fields mapped to <em>feed_source</em>. It also helps to make the data provided function as a sync source for the specific node it creates/updates.
 			}
@@ -722,6 +722,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 				} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
 					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
 				} else {
+					$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
 					$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 				}
 			} elseif( array_key_exists('map_required_field_key_not',$requirement_parameters) ) {
@@ -730,6 +731,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 						//	Everything here looks fine
 						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;
 					} else {
+						$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
 						$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 					}
 				}
@@ -742,18 +744,26 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	$fail_messages = "";
 	//	Check each required map and attach the fail message if it fails validation.
 	foreach($required_maps as $required_fieldname => $requirement_parameters) {
-		if(!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']]) || $ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] != TRUE) {
+		if(
+			!array_key_exists($requirement_parameters['storage_key'], $ret['all'][$importer_config['id']])
+			|| $ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] != TRUE
+		) {
 			$passed_requirements = FALSE;
 			$fail_messages .= "<div>".$requirement_parameters['fail_message']."</div>";
 		}
+	}
+	if( $ret['all'][$importer_config['id']]['settings_errors'] == TRUE || $ret['all'][$importer_config['id']]['mappings_errors'] == TRUE) {
+		$passed_requirements = FALSE;
 	}
 	//	If this importer had a mapped "FEED_URL" and passed all validation, then add it to the list of form_importers!
 	if($passed_requirements) {
 		$ret['valid'][$importer_config['id']] = t($importer_config['name']).((strlen($importer_config['description'])>0)?" ".t($importer_config['description']):"");
 	} else {
 		$ret['all'][$importer_config['id']]['fail_messages'][] = $fail_messages;
-		$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed mapping form.","admin/structure/feeds/".$importer_config['id']."/mapping");
-		$ret['all'][$importer_config['id']]['mappings_errors'] = TRUE;
+		if($ret['all'][$importer_config['id']]['mappings_errors'] == TRUE)
+			$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed mapping form.","admin/structure/feeds/".$importer_config['id']."/mapping");
+		if($ret['all'][$importer_config['id']]['settings_errors'] == TRUE)
+			$ret['all'][$importer_config['id']]['fail_messages'][] = l("Click here to go to the feed processor settings form.","admin/structure/feeds/".$importer_config['id']."/settings/FeedsNodeProcessor");
 	}
 	unset($fail_messages);
 	unset($passed_requirements);
