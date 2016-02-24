@@ -18,7 +18,7 @@ module_load_include('inc', 'feeds_node_autosync', 'feeds_node_autosync.node_hook
 function feeds_node_autosync_help($path, $arg) {
 	switch ($path) {
 		case "admin/help#feeds_node_autosync":
-			return '<p>' . t("Connect nodes to their defined feed URL for automatic updates!") . '</p>';
+			return '<p>' . t("This module allows you to connect nodes to their defined Feed URL for automatic updates! There is significant help available in the Content Type edit form. It is shown in the \"Feeds Auto-sync\" tab at the bottom of the form.") . '</p>';
 			break;
 	}
 }
