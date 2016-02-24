@@ -627,12 +627,12 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 			'guid' => array(
 					'ignore_mode' => 'name',
 					'ignore_match' => 'guid',
-					'user_message' => 'Fields of the %field_name variety can\'t be protected. They aren\'t presented on the edit form.',
+					'user_message' => 'Fields of the %field_name variety can\'t be protected. They aren\'t present on the edit form.',
 			),
 			'feeds_source' => array(
 					'ignore_mode' => 'name',
 					'ignore_match' => 'feeds_source',
-					'user_message' => 'Fields of the %field_name variety can\'t be protected. They aren\'t presented to the edit form.',
+					'user_message' => 'Fields of the %field_name variety can\'t be protected. They aren\'t present on the edit form.',
 			),
 			'url' => array(
 					'ignore_mode' => 'name',
@@ -685,7 +685,8 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					$label = $importer_field['label'];
 				else
 					$label = $map['target'];
-				$ret['all'][$importer_config['id']]['fields_messages'][] = t($data['user_message'],array('%field_name'=>$label));
+				if(!in_array( t($data['user_message'],array('%field_name'=>$label)),$ret['all'][$importer_config['id']]['fields_messages']))
+					$ret['all'][$importer_config['id']]['fields_messages'][] = t($data['user_message'],array('%field_name'=>$label));
 				$ret['mapped_fields_messages'][$title] = t($data['user_message'],array('%field_name'=>$label));
 			}
 		}
