@@ -573,6 +573,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	$ret['all'][$importer_config['id']]['description'] = $importer_config['description'];
 	$ret['all'][$importer_config['id']]['id'] = $importer_config['id'];
 	$ret['all'][$importer_config['id']]['bundle'] = $importer_config['content_type'];
+	$ret['all'][$importer_config['id']]['validation_messages'] = array();
 	$url_query_data = db_select('feeds_source', 'fs')
 		->fields('fs', array('source'))
 		->condition('id', $importer_config['id'])
@@ -722,7 +723,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	Then set the storage key thing, indicating passed validation
 				} elseif($requirement_parameters['map_required_field_key_not'] != $map['target']) {
 					$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;	//	This isn't the one that is invalid, so it's valid.
-				} else {
+				} elseif(!in_array($requirement_parameters['fail_message'],$ret['all'][$importer_config['id']]['validation_messages'])) {
 					$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 				}
 			} elseif( array_key_exists('map_required_field_key_not',$requirement_parameters) ) {
@@ -730,7 +731,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					if($map[$requirement_parameters['map_required_key']] == $requirement_parameters['map_required_value']) {
 						//	Everything here looks fine
 						$ret['all'][$importer_config['id']][$requirement_parameters['storage_key']] = TRUE;
-					} else {
+					} elseif(!in_array($requirement_parameters['fail_message'],$ret['all'][$importer_config['id']]['validation_messages'])) {
 						$ret['all'][$importer_config['id']]['validation_messages'][] = $requirement_parameters['fail_message'];
 					}
 				}
