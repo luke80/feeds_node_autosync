@@ -568,6 +568,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 	unset($importer);	//	Since this is no longer needed, why not delete it?
 	//	Check and enforce that the node type (bundle) matches the current, and that the feed is set to 'update existing nodes'.
 	//	Also required is at least one field processed as a unique identifier.
+	$ret['mapped_fields_messages'] = array();
 	$ret['all'][$importer_config['id']] = array();
 	$ret['all'][$importer_config['id']]['mapped_FEED_URL'] = FALSE;
 	$ret['all'][$importer_config['id']]['mapped_processor_includes_unique_field'] = FALSE;
@@ -671,7 +672,7 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 		$importer_field = field_info_instance('node',$field_name,$bundle);
 		$ignore = FALSE;
 		foreach($ignored_maps as $title=>$data) {
-			if($importer_field && array_key_exists($data['ignore_mode'],$importer_field) && $data['ignore_mode'] != "widget") {
+			if($importer_field && $data['ignore_mode'] == "name" && array_key_exists($data['ignore_match'],$importer_field) && $data['ignore_mode'] != "widget") {
 				$ignore = TRUE;
 			} elseif($data['ignore_match'] == $map['target']) {
 				$ignore = TRUE;
@@ -691,11 +692,12 @@ function feeds_node_autosync_validate_importer($importer_id, $bundle) {
 					$label = $importer_field['label'];
 				else
 					$label = $map['target'];
-				if(!in_array( t($data['user_message'],array('%field_name'=>$label)),$ret['all'][$importer_config['id']]['fields_messages']))
-					$ret['all'][$importer_config['id']]['fields_messages'][] = t($data['user_message'],array('%field_name'=>$label));
-				$ret['mapped_fields_messages'][$title] = t($data['user_message'],array('%field_name'=>$label));
+				if( !in_array( t($data['user_message'],array('%field_name'=>$label)),$ret['all'][$importer_config['id']]['fields_messages'] ) ) {
+					$ret['all'][$importer_config['id']]['fields_messages'][$title] = t($data['user_message'],array('%field_name'=>$label));
+				}
 			}
 		}
+		$ret['mapped_fields_messages'] = $ret['all'][$importer_config['id']]['fields_messages'];
 		if($importer_field && !$ignore && strpos($map['target'],":") == -1) {	//	This verifies that the mapped field is a field in the content type
 			$ret['all'][$importer_config['id']]['fields'][$importer_field['field_name']] = t($importer_field['label']);
 			$ret['mapped_fields'][$importer_field['field_name']] = t($importer_field['label']);
