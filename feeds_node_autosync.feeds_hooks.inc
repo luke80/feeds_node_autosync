@@ -11,7 +11,7 @@ function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
 	$source_importer = _feeds_node_autosync_retrieve_importer($source, TRUE);
 	//	Load the config (perhaps we should standardize the variable name loaded for this?)
 	if($source_bundle != "Unknown node type")
-		$fna = feeds_node_autosync_config($node_type,NULL,TRUE);
+		$fna = feeds_node_autosync_config($source_bundle,NULL,TRUE);
 	else
 		$fna = NULL;
 	if(is_object($fna) && $source_importer != $fna->config->importer_config && $fna->config->importer_config->name) {
@@ -71,7 +71,9 @@ function feeds_node_autosync_feeds_after_import( FeedsSource $source ) {
  *   The node id string being updated
  */
 function feeds_node_autosync_feeds_before_update( FeedsSource $source, $item, $entity_id ) {
-	$entity = array_pop(entity_load('node',array($entity_id)));	//	Load the entity. Returns an array, we need the first one (probably only one)
+	$node = entity_load('node',array($entity_id));
+	$entity = (!is_null($entity_id))?array_pop($node):NULL;	//	Load the entity. Returns an array, we need the first one (probably only one)
+	unset($node);
 	//	Retrieve the updated date from the database to detect cooldown collision.
 	$feeds_items_result = db_select('feeds_item', 'n')
 		->fields('n', array('id', 'url', 'entity_id', 'imported'))
@@ -85,8 +87,8 @@ function feeds_node_autosync_feeds_before_update( FeedsSource $source, $item, $e
 		$fna = feeds_node_autosync_config($node_type,NULL,TRUE);
 	else
 		$fna = NULL;
-	if(is_object($fna) && $fna->config->active->value == 1) {
-		if( (REQUEST_TIME - $feeds_items_row['imported']) < ($fna->config->cooldown->value) ) {
+	if(is_object($fna) && $feeds_items_result && $fna->config->active->value == 1) {
+		if( (REQUEST_TIME - $feeds_items_result['imported']) < ($fna->config->cooldown->value) ) {
 			//	If the last update happened within the cooldown interval, this update event should be skipped and indicates positively that the node is both updated and appropriately autosyncing.
 			drupal_set_message(t('%node_title updated from feed source.',array('%node_title'=>$entity->title)),'status',TRUE);
 			$entity->skip = TRUE;
@@ -110,7 +112,7 @@ function feeds_node_autosync_feeds_before_update( FeedsSource $source, $item, $e
  */
 function feeds_node_autosync_feeds_presave(FeedsSource $source, $entity, $item) {
 	//	If the entity is marked for skip - update the feeds_item to do so.
-	if($entity->skip) {
+	if(property_exists($entity,"skip") && $entity->skip) {
 		$entity->feeds_item->skip = TRUE;
 	}
 	//	I wonder if this is where the phantom empty nodes are being created?
