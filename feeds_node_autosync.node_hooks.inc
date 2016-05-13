@@ -34,11 +34,11 @@ function feeds_node_autosync_node_update( $node ) {
 			unset($feed_config);
 			$feed_source->save();
 			//	Optional message to alter the user that the update has begun?
-			//	drupal_set_message(t('Updating %node_title from feed source.',array('%node_title'=>$node->title)),'status',TRUE);
+			//drupal_set_message(t('Updating %node_title from feed source.',array('%node_title'=>$node->title)),'status',TRUE);
 			$feed_source->startImport();
 			//	I saw somewhere that this would perform the batch without the ajax thing... but I found it worked less reliably. The limitation seems to be that only a small number of feeds can be processed at the same time, and that limit is hit far too often to do it this way.
-			//	while (FEEDS_BATCH_COMPLETE != $feed_source->import());
-			unset($feed_source);
+			//while (FEEDS_BATCH_COMPLETE != $feed_source->import());
+			//unset($feed_source);
 		} else {
 			//	Since updating the node fires this update hook, a second event is inevitable. This event verifies that the node has been updated indeed, therefore show the updated from source message.
 			drupal_set_message(t('%node_title updated from feed source.',array('%node_title'=>$node->title)),'status',TRUE);

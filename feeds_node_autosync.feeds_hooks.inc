@@ -14,7 +14,7 @@ function feeds_node_autosync_feeds_before_import( FeedsSource $source ) {
 		$fna = feeds_node_autosync_config($source_bundle,NULL,TRUE);
 	else
 		$fna = NULL;
-	if(is_object($fna) && $source_importer != $fna->config->importer_config && $fna->config->importer_config->name) {
+	if(is_object($fna) && is_object($fna->config) && is_object($fna->config->importer_config) && $source_importer != $fna->config->importer_config && $fna->config->importer_config->name) {
 		watchdog('feeds_node_autosync',t("Auto-sync feed triggered for @feed_source_name pageload:@page_load",array('@feed_source_name'=>$source_importer['name'],'@page_load'=>REQUEST_TIME)),NULL,WATCHDOG_DEBUG);
 		//	Alert the user that autosync has been temporarily suspended due to "large batch" import.
 		drupal_set_message(t("%active_importer importing to %node_type which is configured to auto-feed from %configured_importer. Temporarily suspending auto-sync for this content type until this import completes.",array('%active_importer'=>$source_importer['name'],'%node_type'=>node_type_get_name($source_bundle),'%configured_importer'=>$fna->config->importer_config->name)));
