@@ -236,7 +236,7 @@ function feeds_node_autosync_form_node_type_form_alter( &$form, &$form_state, $f
 		}
 		$fna_validation_on = variable_get('feeds_node_autosync_validator_active', TRUE);
 		$current_is_valid = (is_object($c) && is_object($c->config) && is_object($c->config->importer) && $c->config->importer->value && in_array($c->config->importer->value, array_keys($form_datas['importers']['valid'])));
-		if($fna_validation_on && count($form_datas['importers']['valid']) == 0 && $current_is_valid) {
+		if($fna_validation_on && count($form_datas['importers']['valid']) == 0 && !$current_is_valid) {
 			//	Verify successful import of nodes with 'FEED_URL' set in db.
 			$missing_nodes_error = t('Before connecting auto-update to your %bundle, your content usually would be created (or updated) by a feed. Your Feeds importer needs to be run at least once to establish this connection.',array('%bundle'=>node_type_get_name($form['#node_type']->type)));		//	<div><strong>No&nbsp;\'feed_source\'&nbsp;data&nbsp;found.</strong> This is required to map. Otherwise the individual items won\'t have a location to sync from.</div>
 			foreach($form_datas['importers']['valid'] as $importer_name=>$importer) {
